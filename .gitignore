@@ -1,0 +1,23 @@
+﻿# Build artifacts
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+
+# IDE folders
+.vs/
+.vscode/
+
+# Logs and temp
+*.log
+*.tmp
+
+# Configs/secrets
+appsettings*.json
+
+# DB dump or local files
+*.sql
+*.db
+*.bak
