@@ -33,6 +33,8 @@
 
 	<ItemGroup>
 	  <Folder Include="wwwroot\uploads\profile-pictures\admin\" />
+	  <Folder Include="wwwroot\uploads\profile-pictures\student\" />
+	  <Folder Include="wwwroot\uploads\profile-pictures\teacher\" />
 	</ItemGroup>
 
 
