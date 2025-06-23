@@ -1,0 +1,23 @@
+# Build
+bin/
+obj/
+
+# User files
+*.user
+*.suo
+
+# VS folders
+.vs/
+.vscode/
+
+# Logs and temp
+*.log
+*.tmp
+
+# Secrets and settings
+appsettings.*.json
+
+# DB and misc
+*.sql
+*.db
+*.bak
