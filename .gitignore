@@ -1,6 +1,7 @@
-# Build artifacts
+﻿# Build artifacts
 bin/
 obj/
+
 wwwroot/
 
 # User-specific files
@@ -17,7 +18,6 @@ wwwroot/
 
 # Configs/secrets
 appsettings*.json
-!appsettings.json        # keep the base appsettings.json
 
 # DB dump or local files
 *.sql
