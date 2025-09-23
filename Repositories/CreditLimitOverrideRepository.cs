@@ -19,20 +19,24 @@ namespace backend.Repositories
         {
             var parameters = new[]
             {
-                new MySqlParameter("p_policy_id", overrideEntity.PolicyId),
-                new MySqlParameter("p_student_id", overrideEntity.StudentId),
-                new MySqlParameter("p_new_max_credits", overrideEntity.NewMaxCredits),
-                new MySqlParameter("p_reason", overrideEntity.Reason),
-                new MySqlParameter("p_approved_by", approvedByUserId),
-                new MySqlParameter("p_expires_at", overrideEntity.ExpiresAt ?? (object)DBNull.Value),
-                new MySqlParameter("p_override_id", MySqlDbType.Int32) { Direction = ParameterDirection.Output }
-            };
+        new MySqlParameter("p_policy_id", overrideEntity.PolicyId),
+        new MySqlParameter("p_student_id", overrideEntity.StudentId),
+        new MySqlParameter("p_new_max_credits", overrideEntity.NewMaxCredits),
+        new MySqlParameter("p_reason", overrideEntity.Reason),
+        new MySqlParameter("p_approved_by", approvedByUserId),
+        new MySqlParameter("p_expires_at", overrideEntity.ExpiresAt ?? (object)DBNull.Value),
+        new MySqlParameter("p_created_by", approvedByUserId),  // Add this
+        new MySqlParameter("p_modified_by", approvedByUserId), // Add this
+        new MySqlParameter("p_override_id", MySqlDbType.Int32) { Direction = ParameterDirection.Output }
+    };
 
             await _context.ExecuteNonQueryAsync("sp_create_credit_limit_override", parameters);
 
-            return Convert.ToInt32(parameters[6].Value);
+            return Convert.ToInt32(parameters[8].Value); // Update index to 8
         }
 
+
+       
         public async Task<bool> UpdateAsync(CreditLimitOverride overrideEntity, int modifiedBy)
         {
             var parameters = new[]
@@ -72,7 +76,7 @@ namespace backend.Repositories
                 new MySqlParameter("p_program_id", programId ?? (object)DBNull.Value)
             };
 
-            var result = await _context.ExecuteQueryAsync("sp_get_all_overrides", parameters);
+            var result = await _context.ExecuteQueryAsync("sp_get_all_credit_limit_overrides", parameters);
 
             var overrides = new List<CreditLimitOverride>();
             foreach (DataRow row in result.Rows)
@@ -85,20 +89,58 @@ namespace backend.Repositories
 
         public async Task<CreditLimitOverride?> GetByIdAsync(int id)
         {
-            // We'll get all and filter by ID since we don't have a specific stored procedure
-            var allOverrides = await GetAllAsync(null);
-            return allOverrides.FirstOrDefault(o => o.Id == id);
-        }
+            var parameters = new[] { new MySqlParameter("p_id", id) };
+            var result = await _context.ExecuteQueryAsync("sp_get_credit_limit_override_by_id", parameters);
 
+            if (result.Rows.Count == 0)
+                return null;
+
+            var row = result.Rows[0];
+            return new CreditLimitOverride
+            {
+                Id = Convert.ToInt32(row["id"]),
+                PolicyId = Convert.ToInt32(row["policy_id"]),
+                StudentId = Convert.ToInt32(row["student_id"]),
+                NewMaxCredits = Convert.ToInt32(row["new_max_credits"]),
+                Reason = row["reason"]?.ToString() ?? string.Empty,
+                ApprovedBy = Convert.ToInt32(row["approved_by"]),
+                ExpiresAt = row["expires_at"] == DBNull.Value ? null : Convert.ToDateTime(row["expires_at"]),
+                CreatedAt = Convert.ToDateTime(row["created_at"]),
+                CreatedBy = row["created_by"] == DBNull.Value ? null : Convert.ToInt32(row["created_by"]),
+                ModifiedAt = row["modified_at"] == DBNull.Value ? DateTime.UtcNow : Convert.ToDateTime(row["modified_at"]),
+                ModifiedBy = row["modified_by"] == DBNull.Value ? null : Convert.ToInt32(row["modified_by"]),
+                IsActive = Convert.ToBoolean(row["is_active"]),
+                IsDeleted = Convert.ToBoolean(row["is_deleted"]),
+
+                // Use safe access with null checks for joined columns
+                PolicyName = row.Table.Columns.Contains("policy_name") ? row["policy_name"]?.ToString() : null,
+                StudentName = row.Table.Columns.Contains("student_name") ? row["student_name"]?.ToString() : null,
+                StudentRegNo = row.Table.Columns.Contains("student_reg_no") ? row["student_reg_no"]?.ToString() : null,
+                ApprovedByName = row.Table.Columns.Contains("approved_by_name") ? row["approved_by_name"]?.ToString() : null,
+                Status = row.Table.Columns.Contains("status") ? row["status"]?.ToString() : null
+            };
+        }
         public async Task<bool> DeleteAsync(int id, int modifiedBy)
         {
-            var overrideEntity = await GetByIdAsync(id);
-            if (overrideEntity == null) return false;
+            try
+            {
+                var parameters = new[]
+                {
+            new MySqlParameter("p_override_id", id),
+            new MySqlParameter("p_modified_by", modifiedBy)
+        };
 
-            overrideEntity.IsActive = false;
-            overrideEntity.IsDeleted = true;
-
-            return await UpdateAsync(overrideEntity, modifiedBy);
+                var result = await _context.ExecuteNonQueryAsync("sp_delete_credit_limit_override", parameters);
+                return result > 0;
+            }
+            catch (MySqlException ex) when (ex.Number == 1644) // Custom error code for unauthorized
+            {
+                throw new UnauthorizedAccessException("Only admin users can delete credit limit overrides");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to delete credit limit override: {ex.Message}");
+            }
         }
 
         public async Task<CreditLimitOverride?> GetActiveOverrideForStudentAsync(int studentId)
@@ -121,17 +163,15 @@ namespace backend.Repositories
                 ExpiresAt = row["expires_at"] as DateTime?,
                 IsActive = Convert.ToBoolean(row["is_active"]),
                 CreatedAt = Convert.ToDateTime(row["created_at"]),
-                CreatedBy = row["created_by"] as int?,
-                ModifiedAt = Convert.ToDateTime(row["modified_at"]),
-                ModifiedBy = row["modified_by"] as int?,
 
-                // Additional properties from join
-                PolicyName = row["policy_name"] as string,
-                StudentName = row["student_name"] as string,
-                StudentRegNo = row["reg_no"] as string,
-                ApprovedByName = row["approved_by_name"] as string,
-                Status = row["status"] as string
+                // Use safe access with null checks
+                PolicyName = row.Table.Columns.Contains("policy_name") ? row["policy_name"] as string : null,
+                StudentName = row.Table.Columns.Contains("student_name") ? row["student_name"] as string : null,
+                StudentRegNo = row.Table.Columns.Contains("student_reg_no") ? row["student_reg_no"] as string : null,
+                ApprovedByName = row.Table.Columns.Contains("approved_by_name") ? row["approved_by_name"] as string : null,
+                Status = row.Table.Columns.Contains("status") ? row["status"] as string : null
             };
         }
     }
+    
 }

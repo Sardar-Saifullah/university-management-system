@@ -124,24 +124,7 @@ namespace backend.Controllers
             }
         }
 
-        [HttpGet("validate-enrollment/{studentId}/{courseId}")]
-        [PermissionRequired("CreditLimitPolicy", "read", "credit_limit_validation")]
-        public async Task<IActionResult> ValidateEnrollment(int studentId, int courseId)
-        {
-            try
-            {
-                var result = await _policyService.ValidateEnrollmentAgainstCreditLimit(studentId, courseId);
-                return Ok(result);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
+        
 
         private int GetCurrentUserId()
         {

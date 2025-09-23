@@ -1,148 +1,191 @@
 ﻿using backend.Dtos;
 using backend.Repositories;
-using System.Security.Claims;
+using MySql.Data.MySqlClient;
 
 namespace backend.Services
 {
     public class UserManagementService : IUserManagementService
     {
         private readonly IUserManagementRepository _repository;
-        private readonly IPermissionService _permissionService;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public UserManagementService(
             IUserManagementRepository repository,
-            IPermissionService permissionService,
             IHttpContextAccessor httpContextAccessor)
         {
             _repository = repository;
-            _permissionService = permissionService;
             _httpContextAccessor = httpContextAccessor;
-        }
-
-        private string GetCurrentUserProfile()
-        {
-            return _httpContextAccessor.HttpContext?.User?.FindFirstValue("profile") ?? string.Empty;
-        }
-
-        private async Task<bool> CheckPermissionAsync(string activityName, string action)
-        {
-            var profileName = GetCurrentUserProfile();
-            if (string.IsNullOrEmpty(profileName))
-                return false;
-
-            // For simplicity, we'll check if the profile has permission for the base activity
-            // You might need to adjust this based on your actual permission structure
-            return await _permissionService.CheckPermission(profileName, activityName);
         }
 
         public async Task<PaginationResponseDto<UserResponseDto>> GetUsersAsync(int adminId, PaginationRequestDto request, int? profileId = null, bool? isActive = null)
         {
-            if (!await CheckPermissionAsync("users", "read"))
-                throw new UnauthorizedAccessException("Permission denied for reading users");
-
             return await _repository.GetUsersAsync(request, profileId, isActive);
         }
 
         public async Task<UserResponseDto?> GetUserByIdAsync(int adminId, int userId)
         {
-            if (!await CheckPermissionAsync("users", "read"))
-                throw new UnauthorizedAccessException("Permission denied for reading users");
-
             return await _repository.GetUserByIdAsync(userId);
         }
 
         public async Task<bool> UpdateUserAsync(int adminId, int userId, UserUpdateDto updateDto)
         {
-            if (!await CheckPermissionAsync("users", "update"))
-                throw new UnauthorizedAccessException("Permission denied for updating users");
+            // First verify the user exists
+            var existingUser = await _repository.GetUserByIdAsync(userId);
+            if (existingUser == null)
+            {
+                return false;
+            }
 
-            var affectedRows = await _repository.UpdateUserAsync(adminId, userId, updateDto);
-            return affectedRows > 0;
+            // Try to update - even if no changes are made, we consider it successful
+            // as long as the user exists
+            try
+            {
+                var affectedRows = await _repository.UpdateUserAsync(adminId, userId, updateDto);
+                return true; // User exists, so consider it successful regardless of changes
+            }
+            catch
+            {
+                return false; // Some other error occurred
+            }
+
         }
 
         public async Task<bool> DeleteUserAsync(int adminId, int userId)
         {
-            if (!await CheckPermissionAsync("users", "delete"))
-                throw new UnauthorizedAccessException("Permission denied for deleting users");
+            try
+            {
+                var affectedRows = await _repository.DeleteUserAsync(adminId, userId);
 
-            var affectedRows = await _repository.DeleteUserAsync(adminId, userId);
-            return affectedRows > 0;
+                // Return true if rows were affected OR if the user doesn't exist (already deleted)
+                // The desired state is "user deleted", which is already achieved if they don't exist
+                return true;
+            }
+            catch (Exception ex) when (ex.Message.Contains("User not found") ||
+                                      ex.Message.Contains("not found"))
+            {
+                // User doesn't exist, which means the desired state is already achieved
+                return true;
+            }
+            catch
+            {
+                // Some other error occurred during deletion
+                return false;
+            }
         }
 
         public async Task<PaginationResponseDto<StudentProfileResponseDto>> GetStudentProfilesAsync(int adminId, PaginationRequestDto request, string? academicStatus = null)
         {
-            if (!await CheckPermissionAsync("student_profiles", "read"))
-                throw new UnauthorizedAccessException("Permission denied for reading student profiles");
-
             return await _repository.GetStudentProfilesAsync(request, academicStatus);
         }
 
         public async Task<StudentProfileResponseDto?> GetStudentProfileByIdAsync(int adminId, int studentId)
         {
-            if (!await CheckPermissionAsync("student_profiles", "read"))
-                throw new UnauthorizedAccessException("Permission denied for reading student profiles");
-
             return await _repository.GetStudentProfileByIdAsync(studentId);
         }
 
         public async Task<bool> UpdateStudentProfileAsync(int adminId, int studentId, StudentProfileUpdateDto updateDto)
         {
-            if (!await CheckPermissionAsync("student_profiles", "update"))
-                throw new UnauthorizedAccessException("Permission denied for updating student profiles");
+            // First check if student exists
+            var existingStudent = await _repository.GetStudentProfileByIdAsync(studentId);
+            if (existingStudent == null)
+            {
+                return false;
+            }
 
-            var affectedRows = await _repository.UpdateStudentProfileAsync(adminId, studentId, updateDto);
-            return affectedRows > 0;
+            // Perform the update - consider it successful as long as student exists
+            try
+            {
+                var affectedRows = await _repository.UpdateStudentProfileAsync(adminId, studentId, updateDto);
+                return true; // Student exists, so consider it successful regardless of changes
+            }
+            catch (Exception ex) when (ex.Message.Contains("not found") || ex.Message.Contains("Student not found"))
+            {
+                return false;
+            }
+            catch
+            {
+                return false; // Some other error occurred
+            }
         }
 
         public async Task<PaginationResponseDto<TeacherProfileResponseDto>> GetTeacherProfilesAsync(int adminId, PaginationRequestDto request, int? depId = null)
         {
-            if (!await CheckPermissionAsync("teacher_profiles", "read"))
-                throw new UnauthorizedAccessException("Permission denied for reading teacher profiles");
-
             return await _repository.GetTeacherProfilesAsync(request, depId);
         }
 
         public async Task<TeacherProfileResponseDto?> GetTeacherProfileByIdAsync(int adminId, int teacherId)
         {
-            if (!await CheckPermissionAsync("teacher_profiles", "read"))
-                throw new UnauthorizedAccessException("Permission denied for reading teacher profiles");
-
             return await _repository.GetTeacherProfileByIdAsync(teacherId);
         }
 
         public async Task<bool> UpdateTeacherProfileAsync(int adminId, int teacherId, TeacherProfileUpdateDto updateDto)
         {
-            if (!await CheckPermissionAsync("teacher_profiles", "update"))
-                throw new UnauthorizedAccessException("Permission denied for updating teacher profiles");
+            // First check if teacher exists
+            var existingTeacher = await _repository.GetTeacherProfileByIdAsync(teacherId);
+            if (existingTeacher == null)
+            {
+                return false;
+            }
 
-            var affectedRows = await _repository.UpdateTeacherProfileAsync(adminId, teacherId, updateDto);
-            return affectedRows > 0;
+            try
+            {
+                var affectedRows = await _repository.UpdateTeacherProfileAsync(adminId, teacherId, updateDto);
+
+                // Return true if teacher exists, regardless of whether changes were made
+                // This is acceptable because the desired state (teacher exists with current data) is achieved
+                return true;
+            }
+            catch (Exception ex) when (ex.Message.Contains("not found") || ex.Message.Contains("Teacher not found"))
+            {
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging
+                Console.WriteLine($"Error updating teacher: {ex.Message}");
+                return false;
+            }
         }
 
         public async Task<PaginationResponseDto<AdminProfileResponseDto>> GetAdminProfilesAsync(int adminId, PaginationRequestDto request, string? level = null)
         {
-            if (!await CheckPermissionAsync("admin_profiles", "read"))
-                throw new UnauthorizedAccessException("Permission denied for reading admin profiles");
-
             return await _repository.GetAdminProfilesAsync(request, level);
         }
 
         public async Task<AdminProfileResponseDto?> GetAdminProfileByIdAsync(int adminId, int adminProfileId)
         {
-            if (!await CheckPermissionAsync("admin_profiles", "read"))
-                throw new UnauthorizedAccessException("Permission denied for reading admin profiles");
-
             return await _repository.GetAdminProfileByIdAsync(adminProfileId);
         }
 
         public async Task<bool> UpdateAdminProfileAsync(int adminId, int targetAdminId, AdminProfileUpdateDto updateDto)
         {
-            if (!await CheckPermissionAsync("admin_profiles", "update"))
-                throw new UnauthorizedAccessException("Permission denied for updating admin profiles");
+            try
+            {
+                var existingAdmin = await _repository.GetAdminProfileByIdAsync(targetAdminId);
+                if (existingAdmin == null)
+                {
+                    return false;
+                }
 
-            var affectedRows = await _repository.UpdateAdminProfileAsync(adminId, targetAdminId, updateDto);
-            return affectedRows > 0;
+                var affectedRows = await _repository.UpdateAdminProfileAsync(adminId, targetAdminId, updateDto);
+
+                // Log the update attempt
+                Console.WriteLine($"Admin {adminId} updated admin {targetAdminId}. Rows affected: {affectedRows}");
+
+                return affectedRows >= 0; // Return true even if no rows changed (0) or if rows were updated (>0)
+            }
+            catch (MySqlException mysqlEx)
+            {
+                Console.WriteLine($"MySQL Error updating admin: {mysqlEx.Message}");
+                Console.WriteLine($"Error Number: {mysqlEx.Number}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating admin: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                return false;
+            }
         }
     }
 }

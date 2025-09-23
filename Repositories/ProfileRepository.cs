@@ -2,6 +2,7 @@
 using backend.Data;
 using backend.Dtos;
 using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace backend.Repositories
 {
@@ -47,16 +48,38 @@ namespace backend.Repositories
         {
             var parameters = new[]
             {
-                new MySqlParameter("p_admin_id", adminId),
-                new MySqlParameter("p_name", updateDto.Name ?? (object)DBNull.Value),
-                new MySqlParameter("p_email", updateDto.Email ?? (object)DBNull.Value),
-                new MySqlParameter("p_contact", updateDto.Contact ?? (object)DBNull.Value)
-            };
+        new MySqlParameter("p_admin_id", adminId),
+        new MySqlParameter("p_name", updateDto.Name ?? (object)DBNull.Value),
+        new MySqlParameter("p_email", updateDto.Email ?? (object)DBNull.Value),
+        new MySqlParameter("p_contact", updateDto.Contact ?? (object)DBNull.Value)
+    };
 
-            var affectedRows = await _context.ExecuteNonQueryAsync("sp_AdminUpdateProfile", parameters);
-            return affectedRows > 0;
+            try
+            {
+                // Use ExecuteScalarAsync to get the success indicator from the SELECT statement
+                var result = await _context.ExecuteScalarAsync<int>("sp_AdminUpdateProfile", parameters);
+                return result == 1;
+            }
+            catch (Exception ex)
+            {
+                // Log the error for debugging
+                Console.WriteLine($"Error updating admin profile: {ex.Message}");
+                return false;
+            }
         }
 
+
+        public async Task<bool> IsUserAdmin(int userId)
+        {
+            var parameters = new[]
+            {
+        new MySqlParameter("p_user_id", userId),
+        new MySqlParameter("p_is_admin", MySqlDbType.Bit) { Direction = ParameterDirection.Output }
+    };
+
+            await _context.ExecuteNonQueryAsync("sp_is_user_admin", parameters);
+            return Convert.ToBoolean(parameters[1].Value);
+        }
         public async Task<TeacherProfileDto> GetTeacherProfile(int teacherId)
         {
             var parameters = new[]
@@ -94,28 +117,44 @@ namespace backend.Repositories
         {
             var parameters = new[]
             {
-                new MySqlParameter("p_teacher_id", teacherId),
-                new MySqlParameter("p_name", updateDto.Name ?? (object)DBNull.Value),
-                new MySqlParameter("p_email", updateDto.Email ?? (object)DBNull.Value),
-                new MySqlParameter("p_contact", updateDto.Contact ?? (object)DBNull.Value)
-            };
+        new MySqlParameter("p_teacher_id", teacherId),
+        new MySqlParameter("p_name", updateDto.Name ?? (object)DBNull.Value),
+        new MySqlParameter("p_email", updateDto.Email ?? (object)DBNull.Value),
+        new MySqlParameter("p_contact", updateDto.Contact ?? (object)DBNull.Value)
+    };
 
-            var affectedRows = await _context.ExecuteNonQueryAsync("sp_TeacherUpdateProfile", parameters);
-            return affectedRows > 0;
+            try
+            {
+                var result = await _context.ExecuteScalarAsync<int>("sp_TeacherUpdateProfile", parameters);
+                return result == 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating teacher profile: {ex.Message}");
+                return false;
+            }
         }
 
         public async Task<bool> UpdateTeacherQualifications(int teacherId, TeacherQualificationUpdateDto updateDto)
         {
             var parameters = new[]
             {
-                new MySqlParameter("p_teacher_id", teacherId),
-                new MySqlParameter("p_qualification", updateDto.Qualification ?? (object)DBNull.Value),
-                new MySqlParameter("p_specialization", updateDto.Specialization ?? (object)DBNull.Value),
-                new MySqlParameter("p_experience_years", updateDto.ExperienceYears)
-            };
+        new MySqlParameter("p_teacher_id", teacherId),
+        new MySqlParameter("p_qualification", updateDto.Qualification ?? (object)DBNull.Value),
+        new MySqlParameter("p_specialization", updateDto.Specialization ?? (object)DBNull.Value),
+        new MySqlParameter("p_experience_years", updateDto.ExperienceYears)
+    };
 
-            var affectedRows = await _context.ExecuteNonQueryAsync("sp_TeacherUpdateQualifications", parameters);
-            return affectedRows > 0;
+            try
+            {
+                var result = await _context.ExecuteScalarAsync<int>("sp_TeacherUpdateQualifications", parameters);
+                return result == 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating teacher qualifications: {ex.Message}");
+                return false;
+            }
         }
 
         public async Task<StudentProfileDto> GetStudentProfile(int studentId)
@@ -160,14 +199,41 @@ namespace backend.Repositories
         {
             var parameters = new[]
             {
-                new MySqlParameter("p_student_id", studentId),
-                new MySqlParameter("p_name", updateDto.Name ?? (object)DBNull.Value),
-                new MySqlParameter("p_email", updateDto.Email ?? (object)DBNull.Value),
-                new MySqlParameter("p_contact", updateDto.Contact ?? (object)DBNull.Value)
-            };
+        new MySqlParameter("p_student_id", studentId),
+        new MySqlParameter("p_name", updateDto.Name ?? (object)DBNull.Value),
+        new MySqlParameter("p_email", updateDto.Email ?? (object)DBNull.Value),
+        new MySqlParameter("p_contact", updateDto.Contact ?? (object)DBNull.Value)
+    };
 
-            var affectedRows = await _context.ExecuteNonQueryAsync("sp_StudentUpdateProfile", parameters);
-            return affectedRows > 0;
+            try
+            {
+                var result = await _context.ExecuteScalarAsync<int>("sp_StudentUpdateProfile", parameters);
+                return result == 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating student profile: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<int?> GetStudentIdByUserId(int userId)
+        {
+            // Direct query is fine here; this is a simple lookup
+            var sql = "SELECT id FROM student_profile WHERE user_id = @userId AND is_deleted = FALSE LIMIT 1";
+            var parameters = new[] { new MySqlParameter("@userId", userId) };
+            var table = await _context.ExecuteQueryAsync(sql, parameters);
+            if (table.Rows.Count == 0) return null;
+            return Convert.ToInt32(table.Rows[0]["id"]);
+        }
+
+        public async Task<int?> GetTeacherIdByUserId(int userId)
+        {
+            var sql = "SELECT id FROM teacher_profile WHERE user_id = @userId AND is_deleted = FALSE LIMIT 1";
+            var parameters = new[] { new MySqlParameter("@userId", userId) };
+            var table = await _context.ExecuteQueryAsync(sql, parameters);
+            if (table.Rows.Count == 0) return null;
+            return Convert.ToInt32(table.Rows[0]["id"]);
         }
     }
 }

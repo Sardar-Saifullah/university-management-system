@@ -8,10 +8,7 @@ namespace backend.Data
         MySqlConnection CreateConnection();
         Task<DataTable> ExecuteQueryAsync(string procedureName, params MySqlParameter[] parameters);
         Task<int> ExecuteNonQueryAsync(string procedureName, params MySqlParameter[] parameters);
-
         Task<T> ExecuteScalarAsync<T>(string procedureName, params MySqlParameter[] parameters);
-
-        // Add these methods for transaction support
         Task<MySqlTransaction> BeginTransactionAsync();
         Task ExecuteInTransaction(Func<Task> operation);
     }
@@ -19,25 +16,30 @@ namespace backend.Data
     public class DatabaseContext : IDatabaseContext
     {
         private readonly string _connectionString;
-    
 
         public DatabaseContext(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("defaultConnection");
-            
         }
 
         public MySqlConnection CreateConnection() => new MySqlConnection(_connectionString);
 
-        public async Task<DataTable> ExecuteQueryAsync(string procedureName, params MySqlParameter[] parameters)
+        public async Task<DataTable> ExecuteQueryAsync(string query, params MySqlParameter[] parameters)
         {
             using var connection = CreateConnection();
             await connection.OpenAsync();
 
-            using var command = new MySqlCommand(procedureName, connection)
+            using var command = new MySqlCommand(query, connection);
+
+            // Determine if it's a stored procedure or raw SQL
+            if (!query.Contains(" ") && !query.Contains(";")) // Simple heuristic for stored procedure names
             {
-                CommandType = CommandType.StoredProcedure
-            };
+                command.CommandType = CommandType.StoredProcedure;
+            }
+            else
+            {
+                command.CommandType = CommandType.Text;
+            }
 
             command.Parameters.AddRange(parameters);
 
@@ -62,6 +64,7 @@ namespace backend.Data
 
             return await command.ExecuteNonQueryAsync();
         }
+
         public async Task<T> ExecuteScalarAsync<T>(string procedureName, params MySqlParameter[] parameters)
         {
             using var connection = CreateConnection();
@@ -75,9 +78,8 @@ namespace backend.Data
             command.Parameters.AddRange(parameters);
 
             var result = await command.ExecuteScalarAsync();
-            return (T)Convert.ChangeType(result, typeof(T));
+            return result == DBNull.Value ? default(T) : (T)Convert.ChangeType(result, typeof(T));
         }
-
 
         public async Task<MySqlTransaction> BeginTransactionAsync()
         {
@@ -99,11 +101,9 @@ namespace backend.Data
             }
             catch (Exception ex)
             {
-                
                 await transaction.RollbackAsync();
                 throw;
             }
         }
-
     }
 }

@@ -1,5 +1,4 @@
 ﻿using backend.Dtos;
-using backend.Models;
 
 namespace backend.Repositories
 {

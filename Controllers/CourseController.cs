@@ -31,7 +31,8 @@ namespace backend.Controllers
         [PermissionRequired("Courses", "read", "course")]
         public async Task<ActionResult<CourseResponseDto>> GetCourse(int id)
         {
-            var course = await _courseService.GetCourse(id);
+            var userId = int.Parse(User.FindFirst("id").Value);
+            var course = await _courseService.GetCourse(id, userId);
             if (course == null) return NotFound();
             return Ok(course);
         }
@@ -45,10 +46,13 @@ namespace backend.Controllers
             [FromQuery] int? programId = null,
             [FromQuery] int? levelId = null,
             [FromQuery] bool? isElective = null,
-            [FromQuery] string searchTerm = null)
+            [FromQuery] string searchTerm = null,
+            [FromQuery] bool onlyActive = true)
         {
+            var userId = int.Parse(User.FindFirst("id").Value);
             var courses = await _courseService.GetCourses(
-                page, pageSize, departmentId, programId, levelId, isElective, searchTerm);
+                userId, page, pageSize, departmentId, programId, levelId,
+                isElective, searchTerm, onlyActive);
             return Ok(courses);
         }
 
@@ -81,32 +85,20 @@ namespace backend.Controllers
             return Ok(result);
         }
 
-        [HttpGet("{courseId}/prerequisites")]
-        [PermissionRequired("Courses", "read", "prerequisite")]
-        public async Task<ActionResult<IEnumerable<PrerequisiteDto>>> GetCoursePrerequisites(int courseId)
-        {
-            var prerequisites = await _courseService.GetCoursePrerequisites(courseId);
-            return Ok(prerequisites);
-        }
-
-        [HttpPost("prerequisites")]
-        [PermissionRequired("Courses", "create", "prerequisite")]
-        public async Task<ActionResult<PrerequisiteDto>> AddPrerequisite(PrerequisiteDto dto)
+        [HttpGet("search")]
+        [PermissionRequired("Courses", "read", "course")]
+        public async Task<ActionResult<CourseListResponseDto>> SearchCourses(
+            [FromQuery] string searchTerm = null,
+            [FromQuery] int? departmentId = null,
+            [FromQuery] int? levelId = null,
+            [FromQuery] bool? isElective = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
             var userId = int.Parse(User.FindFirst("id").Value);
-            var prerequisite = await _courseService.AddPrerequisite(dto, userId);
-            if (prerequisite == null) return BadRequest("Failed to add prerequisite");
-            return CreatedAtAction(nameof(GetCoursePrerequisites), new { courseId = dto.CourseId }, prerequisite);
-        }
-
-        [HttpDelete("prerequisites/{prerequisiteId}")]
-        [PermissionRequired("Courses", "delete", "prerequisite")]
-        public async Task<IActionResult> RemovePrerequisite(int prerequisiteId)
-        {
-            var userId = int.Parse(User.FindFirst("id").Value);
-            var success = await _courseService.RemovePrerequisite(prerequisiteId, userId);
-            if (!success) return NotFound();
-            return NoContent();
+            var courses = await _courseService.SearchCoursesLightweight(
+                userId, searchTerm, departmentId, levelId, isElective, page, pageSize);
+            return Ok(courses);
         }
     }
 }

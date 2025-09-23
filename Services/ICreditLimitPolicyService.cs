@@ -1,6 +1,5 @@
 ﻿// Services/ICreditLimitPolicyService.cs
 using backend.Dtos;
-using backend.Models;
 
 namespace backend.Services
 {
@@ -11,7 +10,7 @@ namespace backend.Services
         Task<IEnumerable<CreditLimitPolicyResponseDto>> GetAllAsync();
         Task<CreditLimitPolicyResponseDto?> GetByIdAsync(int id);
         Task<bool> DeleteAsync(int id, int modifiedBy);
-        Task<EffectiveCreditLimit> GetEffectiveCreditLimitAsync(int studentId);
-        Task<EnrollmentValidationResult> ValidateEnrollmentAgainstCreditLimit(int studentId, int courseId);
+        Task<EffectiveCreditLimitResponseDto> GetEffectiveCreditLimitAsync(int studentId);
+       
     }
 }

@@ -30,7 +30,7 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_AdminEnrollStudent", parameters);
 
-            return Convert.ToInt32(parameters[4].Value);
+			return parameters[4].Value == DBNull.Value ? 0 : Convert.ToInt32(parameters[4].Value);
         }
 
         public async Task<int> AdminUnenrollStudent(int studentId, int courseOfferingId, int adminId, int modifiedBy)
@@ -47,7 +47,7 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_AdminUnenrollStudent", parameters);
 
-            return Convert.ToInt32(parameters[4].Value);
+			return parameters[4].Value == DBNull.Value ? 0 : Convert.ToInt32(parameters[4].Value);
         }
 
         public async Task<int> ApproveEnrollment(int enrollmentId, int adminId, int modifiedBy)
@@ -63,7 +63,7 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_ApproveEnrollment", parameters);
 
-            return Convert.ToInt32(parameters[3].Value);
+			return parameters[3].Value == DBNull.Value ? 0 : Convert.ToInt32(parameters[3].Value);
         }
 
         public async Task<int> RejectEnrollment(int enrollmentId, int adminId, string rejectionReason, int modifiedBy)
@@ -80,7 +80,7 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_RejectEnrollment", parameters);
 
-            return Convert.ToInt32(parameters[4].Value);
+			return parameters[4].Value == DBNull.Value ? 0 : Convert.ToInt32(parameters[4].Value);
         }
 
         public async Task<IEnumerable<Enrollment>> GetPendingEnrollments()
@@ -89,7 +89,7 @@ namespace backend.Repositories
             return MapToEnrollments(result);
         }
 
-        public async Task<int> RequestCourseEnrollment(int studentId, int courseOfferingId, int createdBy)
+		public async Task<EnrollmentResponseDto> RequestCourseEnrollment(int studentId, int courseOfferingId, int createdBy)
         {
             var parameters = new[]
             {
@@ -102,21 +102,63 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_RequestCourseEnrollment", parameters);
 
-            return Convert.ToInt32(parameters[3].Value);
-        }
+			var idObj = parameters[3].Value;
+			var msgObj = parameters[4].Value;
+			return new EnrollmentResponseDto
+			{
+				Id = idObj == DBNull.Value ? 0 : Convert.ToInt32(idObj),
+				StudentId = studentId,
+				CourseOfferingId = courseOfferingId,
+				Status = idObj == DBNull.Value ? "error" : "pending",
+				EnrollmentDate = DateTime.UtcNow,
+				Message = msgObj == DBNull.Value ? string.Empty : msgObj?.ToString() ?? string.Empty
+			};
+		}
 
-        public async Task<IEnumerable<CourseSemesterOffering>> GetAvailableCoursesForStudent(int studentId)
+		public async Task<IEnumerable<CourseOfferingDto>> GetAvailableCoursesForStudent(int studentId)
         {
             var parameters = new[] { new MySqlParameter("p_student_id", studentId) };
             var result = await _context.ExecuteQueryAsync("sp_GetAvailableCoursesForStudent", parameters);
-            return MapToCourseOfferings(result);
-        }
+			var list = new List<CourseOfferingDto>();
+			foreach (DataRow row in result.Rows)
+			{
+				list.Add(MapToCourseOfferingDto(row));
+			}
+			return list;
+		}
 
-        public async Task<IEnumerable<Enrollment>> GetEnrolledCoursesForStudent(int studentId)
+		public async Task<IEnumerable<EnrolledCourseDto>> GetEnrolledCoursesForStudent(int studentId)
         {
             var parameters = new[] { new MySqlParameter("p_student_id", studentId) };
             var result = await _context.ExecuteQueryAsync("sp_GetEnrolledCoursesForStudent", parameters);
-            return MapToEnrollments(result);
+			var list = new List<EnrolledCourseDto>();
+			foreach (DataRow row in result.Rows)
+			{
+				list.Add(new EnrolledCourseDto
+				{
+					EnrollmentId = row.Table.Columns.Contains("enrollment_id") ? Convert.ToInt32(row["enrollment_id"]) : (row.Table.Columns.Contains("id") ? Convert.ToInt32(row["id"]) : 0),
+					Status = row.Table.Columns.Contains("status") ? row["status"].ToString() ?? string.Empty : string.Empty,
+					EnrollmentDate = row.Table.Columns.Contains("enrollment_date") && row["enrollment_date"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_date"]) : DateTime.MinValue,
+					ApprovalDate = row.Table.Columns.Contains("approval_date") && row["approval_date"] != DBNull.Value ? Convert.ToDateTime(row["approval_date"]) : (DateTime?)null,
+					RejectionReason = row.Table.Columns.Contains("rejection_reason") && row["rejection_reason"] != DBNull.Value ? row["rejection_reason"].ToString() : null,
+					WithdrawalDate = row.Table.Columns.Contains("withdrawal_date") && row["withdrawal_date"] != DBNull.Value ? Convert.ToDateTime(row["withdrawal_date"]) : (DateTime?)null,
+					DropDate = row.Table.Columns.Contains("drop_date") && row["drop_date"] != DBNull.Value ? Convert.ToDateTime(row["drop_date"]) : (DateTime?)null,
+					CourseId = row.Table.Columns.Contains("course_id") && row["course_id"] != DBNull.Value ? Convert.ToInt32(row["course_id"]) : 0,
+					Code = row.Table.Columns.Contains("course_code") && row["course_code"] != DBNull.Value ? row["course_code"].ToString() : (row.Table.Columns.Contains("code") && row["code"] != DBNull.Value ? row["code"].ToString() : string.Empty),
+					Title = row.Table.Columns.Contains("course_title") && row["course_title"] != DBNull.Value ? row["course_title"].ToString() : (row.Table.Columns.Contains("title") && row["title"] != DBNull.Value ? row["title"].ToString() : string.Empty),
+					Description = row.Table.Columns.Contains("description") ? row["description"].ToString() ?? string.Empty : string.Empty,
+					CreditHours = row.Table.Columns.Contains("credit_hours") && row["credit_hours"] != DBNull.Value ? Convert.ToDecimal(row["credit_hours"]) : 0m,
+					SemesterName = row.Table.Columns.Contains("semester_name") ? row["semester_name"].ToString() ?? string.Empty : string.Empty,
+					AcademicYear = row.Table.Columns.Contains("academic_year") ? row["academic_year"].ToString() ?? string.Empty : string.Empty,
+					StartDate = row.Table.Columns.Contains("start_date") && row["start_date"] != DBNull.Value ? Convert.ToDateTime(row["start_date"]) : DateTime.MinValue,
+					EndDate = row.Table.Columns.Contains("end_date") && row["end_date"] != DBNull.Value ? Convert.ToDateTime(row["end_date"]) : DateTime.MinValue,
+					DepartmentName = row.Table.Columns.Contains("department_name") ? row["department_name"].ToString() ?? string.Empty : string.Empty,
+					ProgramName = row.Table.Columns.Contains("program_name") ? row["program_name"].ToString() ?? string.Empty : string.Empty,
+					LevelName = row.Table.Columns.Contains("level_name") ? row["level_name"].ToString() ?? string.Empty : string.Empty,
+					ApprovedByName = row.Table.Columns.Contains("approved_by_name") ? row["approved_by_name"].ToString() ?? string.Empty : string.Empty
+				});
+			}
+			return list;
         }
 
         public async Task<int> CancelEnrollmentRequest(int enrollmentId, int studentId, int modifiedBy)
@@ -132,7 +174,7 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_CancelEnrollmentRequest", parameters);
 
-            return Convert.ToInt32(parameters[3].Value);
+			return parameters[3].Value == DBNull.Value ? 0 : Convert.ToInt32(parameters[3].Value);
         }
 
         public async Task<IEnumerable<Enrollment>> GetEnrollmentHistoryForStudent(int studentId)
@@ -142,16 +184,23 @@ namespace backend.Repositories
             return MapToEnrollments(result);
         }
 
-        public async Task<CreditLimitPolicy> GetCreditHourStatus(int studentId)
+		public async Task<CreditHourStatusDto?> GetCreditHourStatus(int studentId)
         {
             var parameters = new[] { new MySqlParameter("p_student_id", studentId) };
             var result = await _context.ExecuteQueryAsync("sp_GetCreditHourStatus", parameters);
 
             if (result.Rows.Count == 0) return null;
 
-            return new CreditLimitPolicy
-            {
-                MaxCredits = Convert.ToInt32(result.Rows[0]["max_allowed_credits"])
+			var row = result.Rows[0];
+			return new CreditHourStatusDto
+			{
+				CurrentCreditHours = row.Table.Columns.Contains("current_credit_hours") && row["current_credit_hours"] != DBNull.Value ? Convert.ToDecimal(row["current_credit_hours"]) : 0m,
+				MaxAllowedCredits = row.Table.Columns.Contains("max_allowed_credits") && row["max_allowed_credits"] != DBNull.Value ? Convert.ToInt32(row["max_allowed_credits"]) : 0,
+				RemainingCredits = row.Table.Columns.Contains("remaining_credits") && row["remaining_credits"] != DBNull.Value ? Convert.ToDecimal(row["remaining_credits"]) : 0m,
+				OverrideReason = row.Table.Columns.Contains("override_reason") && row["override_reason"] != DBNull.Value ? row["override_reason"].ToString() : null,
+				OverrideExpiry = row.Table.Columns.Contains("override_expiry") && row["override_expiry"] != DBNull.Value ? Convert.ToDateTime(row["override_expiry"]) : (DateTime?)null,
+				ApprovedBy = row.Table.Columns.Contains("approved_by") && row["approved_by"] != DBNull.Value ? row["approved_by"].ToString() : null,
+				HasOverride = row.Table.Columns.Contains("override_reason") && row["override_reason"] != DBNull.Value
             };
         }
 
@@ -169,17 +218,22 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_WithdrawFromCourse", parameters);
 
-            return Convert.ToInt32(parameters[4].Value);
+			return parameters[4].Value == DBNull.Value ? 0 : Convert.ToInt32(parameters[4].Value);
         }
 
-        public async Task<IEnumerable<CourseSemesterOffering>> GetAssignedCoursesForTeacher(int teacherId)
+		public async Task<IEnumerable<CourseOfferingDto>> GetAssignedCoursesForTeacher(int teacherId)
         {
             var parameters = new[] { new MySqlParameter("p_teacher_id", teacherId) };
             var result = await _context.ExecuteQueryAsync("sp_GetAssignedCoursesForTeacher", parameters);
-            return MapToCourseOfferings(result);
-        }
+			var list = new List<CourseOfferingDto>();
+			foreach (DataRow row in result.Rows)
+			{
+				list.Add(MapToCourseOfferingDto(row));
+			}
+			return list;
+		}
 
-        public async Task<IEnumerable<Enrollment>> GetEnrolledStudentsForCourse(int teacherId, int courseOfferingId)
+		public async Task<IEnumerable<EnrolledStudentDto>> GetEnrolledStudentsForCourse(int teacherId, int courseOfferingId)
         {
             var parameters = new[]
             {
@@ -188,10 +242,30 @@ namespace backend.Repositories
             };
 
             var result = await _context.ExecuteQueryAsync("sp_GetEnrolledStudentsForCourse", parameters);
-            return MapToEnrollments(result);
-        }
+			var list = new List<EnrolledStudentDto>();
+			foreach (DataRow row in result.Rows)
+			{
+				list.Add(new EnrolledStudentDto
+				{
+					EnrollmentId = row.Table.Columns.Contains("enrollment_id") && row["enrollment_id"] != DBNull.Value ? Convert.ToInt32(row["enrollment_id"]) : 0,
+					Status = row.Table.Columns.Contains("status") ? row["status"].ToString() ?? string.Empty : string.Empty,
+					EnrollmentDate = row.Table.Columns.Contains("enrollment_date") && row["enrollment_date"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_date"]) : DateTime.MinValue,
+					ApprovalDate = row.Table.Columns.Contains("approval_date") && row["approval_date"] != DBNull.Value ? Convert.ToDateTime(row["approval_date"]) : (DateTime?)null,
+					StudentId = row.Table.Columns.Contains("student_id") && row["student_id"] != DBNull.Value ? Convert.ToInt32(row["student_id"]) : 0,
+					RegNo = row.Table.Columns.Contains("reg_no") ? row["reg_no"].ToString() ?? string.Empty : string.Empty,
+					StudentName = row.Table.Columns.Contains("student_name") ? row["student_name"].ToString() ?? string.Empty : string.Empty,
+					CurrentSemester = row.Table.Columns.Contains("current_semester") && row["current_semester"] != DBNull.Value ? Convert.ToInt32(row["current_semester"]) : (int?)null,
+					Cgpa = row.Table.Columns.Contains("cgpa") && row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0m,
+					CurrentCreditHours = row.Table.Columns.Contains("current_credit_hours") && row["current_credit_hours"] != DBNull.Value ? Convert.ToDecimal(row["current_credit_hours"]) : 0m,
+					DepartmentName = row.Table.Columns.Contains("department_name") ? row["department_name"].ToString() ?? string.Empty : string.Empty,
+					ProgramName = row.Table.Columns.Contains("program_name") ? row["program_name"].ToString() ?? string.Empty : string.Empty,
+					LevelName = row.Table.Columns.Contains("level_name") ? row["level_name"].ToString() ?? string.Empty : string.Empty
+				});
+			}
+			return list;
+		}
 
-        public async Task<CourseSemesterOffering> GetCourseDetailsForTeacher(int teacherId, int courseOfferingId)
+		public async Task<CourseOfferingDto?> GetCourseDetailsForTeacher(int teacherId, int courseOfferingId)
         {
             var parameters = new[]
             {
@@ -203,10 +277,10 @@ namespace backend.Repositories
 
             if (result.Rows.Count == 0) return null;
 
-            return MapToCourseOffering(result.Rows[0]);
+			return MapToCourseOfferingDto(result.Rows[0]);
         }
 
-        public async Task<StudentProfile> GetStudentAcademicHistory(int teacherId, int studentId)
+		public async Task<StudentProfile?> GetStudentAcademicHistory(int teacherId, int studentId)
         {
             var parameters = new[]
             {
@@ -221,11 +295,25 @@ namespace backend.Repositories
             return MapToStudentProfile(result.Rows[0]);
         }
 
-        public async Task<IEnumerable<Enrollment>> GetEnrollmentStatusHistory(int enrollmentId)
+		public async Task<IEnumerable<EnrollmentStatusHistoryDto>> GetEnrollmentStatusHistory(int enrollmentId)
         {
             var parameters = new[] { new MySqlParameter("p_enrollment_id", enrollmentId) };
             var result = await _context.ExecuteQueryAsync("sp_GetEnrollmentStatusHistory", parameters);
-            return MapToEnrollments(result);
+
+			var list = new List<EnrollmentStatusHistoryDto>();
+			foreach (DataRow row in result.Rows)
+			{
+				list.Add(new EnrollmentStatusHistoryDto
+				{
+					Id = Convert.ToInt32(row["id"]),
+					OldStatus = row.Table.Columns.Contains("old_status") ? row["old_status"].ToString() ?? string.Empty : string.Empty,
+					NewStatus = row.Table.Columns.Contains("new_status") ? row["new_status"].ToString() ?? string.Empty : string.Empty,
+					ChangeDate = row.Table.Columns.Contains("change_date") && row["change_date"] != DBNull.Value ? Convert.ToDateTime(row["change_date"]) : DateTime.MinValue,
+					Reason = row.Table.Columns.Contains("reason") && row["reason"] != DBNull.Value ? row["reason"].ToString() ?? string.Empty : string.Empty,
+					ChangedBy = row.Table.Columns.Contains("changed_by") && row["changed_by"] != DBNull.Value ? row["changed_by"].ToString() ?? string.Empty : string.Empty
+				});
+			}
+			return list;
         }
 
         public async Task<int> OverrideCreditLimit(int studentId, int policyId, int newMaxCredits, string reason, int approvedBy, DateTime? expiresAt)
@@ -244,7 +332,7 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_OverrideCreditLimit", parameters);
 
-            return Convert.ToInt32(parameters[6].Value);
+			return parameters[6].Value == DBNull.Value ? 0 : Convert.ToInt32(parameters[6].Value);
         }
 
         public async Task<PrerequisiteCheckDto> CheckCoursePrerequisites(int studentId, int courseId)
@@ -261,12 +349,12 @@ namespace backend.Repositories
 
             return new PrerequisiteCheckDto
             {
-                PrerequisitesMet = Convert.ToBoolean(parameters[2].Value),
-                MissingPrerequisites = parameters[3].Value?.ToString() ?? string.Empty
+				PrerequisitesMet = parameters[2].Value != DBNull.Value && Convert.ToBoolean(parameters[2].Value),
+				MissingPrerequisites = parameters[3].Value == DBNull.Value ? string.Empty : parameters[3].Value?.ToString() ?? string.Empty
             };
         }
 
-        public async Task<CourseLoadDto> GetStudentCurrentCourseLoad(int studentId)
+		public async Task<CourseLoadDto?> GetStudentCurrentCourseLoad(int studentId)
         {
             var parameters = new[] { new MySqlParameter("p_student_id", studentId) };
             var result = await _context.ExecuteQueryAsync("sp_GetStudentCurrentCourseLoad", parameters);
@@ -294,15 +382,15 @@ namespace backend.Repositories
             {
                 enrollments.Add(new Enrollment
                 {
-                    Id = Convert.ToInt32(row["id"]),
-                    StudentId = Convert.ToInt32(row["student_id"]),
-                    CourseOfferingId = Convert.ToInt32(row["course_offering_id"]),
-                    Status = row["status"].ToString(),
-                    EnrollmentDate = Convert.ToDateTime(row["enrollment_date"]),
-                    ApprovalDate = row["approval_date"] == DBNull.Value ? null : Convert.ToDateTime(row["approval_date"]),
-                    RejectionReason = row["rejection_reason"]?.ToString(),
-                    WithdrawalDate = row["withdrawal_date"] == DBNull.Value ? null : Convert.ToDateTime(row["withdrawal_date"]),
-                    DropDate = row["drop_date"] == DBNull.Value ? null : Convert.ToDateTime(row["drop_date"])
+					Id = row.Table.Columns.Contains("id") ? Convert.ToInt32(row["id"]) : 0,
+					StudentId = row.Table.Columns.Contains("student_id") ? Convert.ToInt32(row["student_id"]) : 0,
+					CourseOfferingId = row.Table.Columns.Contains("course_offering_id") ? Convert.ToInt32(row["course_offering_id"]) : 0,
+					Status = row.Table.Columns.Contains("status") ? row["status"].ToString() ?? string.Empty : string.Empty,
+					EnrollmentDate = row.Table.Columns.Contains("enrollment_date") && row["enrollment_date"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_date"]) : DateTime.MinValue,
+					ApprovalDate = row.Table.Columns.Contains("approval_date") && row["approval_date"] != DBNull.Value ? Convert.ToDateTime(row["approval_date"]) : (DateTime?)null,
+					RejectionReason = row.Table.Columns.Contains("rejection_reason") && row["rejection_reason"] != DBNull.Value ? row["rejection_reason"].ToString() : null,
+					WithdrawalDate = row.Table.Columns.Contains("withdrawal_date") && row["withdrawal_date"] != DBNull.Value ? Convert.ToDateTime(row["withdrawal_date"]) : (DateTime?)null,
+					DropDate = row.Table.Columns.Contains("drop_date") && row["drop_date"] != DBNull.Value ? Convert.ToDateTime(row["drop_date"]) : (DateTime?)null
                 });
             }
 
@@ -317,26 +405,64 @@ namespace backend.Repositories
             {
                 offerings.Add(new CourseSemesterOffering
                 {
-                    Id = Convert.ToInt32(row["course_offering_id"]),
-                    CourseId = Convert.ToInt32(row["course_id"]),
-                    MaxCapacity = row["max_capacity"] == DBNull.Value ? null : Convert.ToInt32(row["max_capacity"]),
-                    CurrentEnrollment = Convert.ToInt32(row["current_enrollment"]),
-                    EnrollmentStart = row["enrollment_start"] == DBNull.Value ? null : Convert.ToDateTime(row["enrollment_start"]),
-                    EnrollmentEnd = row["enrollment_end"] == DBNull.Value ? null : Convert.ToDateTime(row["enrollment_end"])
+					Id = row.Table.Columns.Contains("course_offering_id") ? Convert.ToInt32(row["course_offering_id"]) : (row.Table.Columns.Contains("id") ? Convert.ToInt32(row["id"]) : 0),
+					CourseId = row.Table.Columns.Contains("course_id") ? Convert.ToInt32(row["course_id"]) : 0,
+					MaxCapacity = row.Table.Columns.Contains("max_capacity") && row["max_capacity"] != DBNull.Value ? Convert.ToInt32(row["max_capacity"]) : (int?)null,
+					CurrentEnrollment = row.Table.Columns.Contains("current_enrollment") && row["current_enrollment"] != DBNull.Value ? Convert.ToInt32(row["current_enrollment"]) : 0,
+					EnrollmentStart = row.Table.Columns.Contains("enrollment_start") && row["enrollment_start"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_start"]) : (DateTime?)null,
+					EnrollmentEnd = row.Table.Columns.Contains("enrollment_end") && row["enrollment_end"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_end"]) : (DateTime?)null
                 });
             }
 
             return offerings;
         }
 
+		private CourseOfferingDto MapToCourseOfferingDto(DataRow row)
+		{
+			return new CourseOfferingDto
+			{
+				Id = row.Table.Columns.Contains("course_offering_id") ? Convert.ToInt32(row["course_offering_id"]) : (row.Table.Columns.Contains("id") ? ConvertToInt(row["id"]) : 0),
+				Code = GetString(row, "code", "course_code"),
+				Title = GetString(row, "title", "course_title"),
+				Description = GetString(row, "description"),
+				CreditHours = GetDecimal(row, "credit_hours"),
+				IsElective = GetBool(row, "is_elective"),
+				MaxCapacity = GetNullableInt(row, "max_capacity"),
+				CurrentEnrollment = GetInt(row, "current_enrollment"),
+				AvailableSeats = GetInt(row, "available_seats"),
+				SemesterName = GetString(row, "semester_name"),
+				AcademicYear = GetString(row, "academic_year"),
+				StartDate = GetDateTime(row, "start_date"),
+				EndDate = GetDateTime(row, "end_date"),
+				DepartmentName = GetString(row, "department_name"),
+				ProgramName = GetString(row, "program_name"),
+				LevelName = GetString(row, "level_name"),
+				PrerequisiteCourses = GetString(row, "prerequisite_courses")
+			};
+		}
+
+		private static int ConvertToInt(object value) => value == DBNull.Value ? 0 : Convert.ToInt32(value);
+		private static string GetString(DataRow row, params string[] names)
+		{
+			foreach (var name in names)
+				if (row.Table.Columns.Contains(name) && row[name] != DBNull.Value)
+					return row[name].ToString() ?? string.Empty;
+			return string.Empty;
+		}
+		private static int GetInt(DataRow row, string name) => row.Table.Columns.Contains(name) && row[name] != DBNull.Value ? Convert.ToInt32(row[name]) : 0;
+		private static int? GetNullableInt(DataRow row, string name) => row.Table.Columns.Contains(name) && row[name] != DBNull.Value ? Convert.ToInt32(row[name]) : (int?)null;
+		private static decimal GetDecimal(DataRow row, string name) => row.Table.Columns.Contains(name) && row[name] != DBNull.Value ? Convert.ToDecimal(row[name]) : 0m;
+		private static bool GetBool(DataRow row, string name) => row.Table.Columns.Contains(name) && row[name] != DBNull.Value && (row[name] is bool ? (bool)row[name] : Convert.ToInt32(row[name]) == 1);
+		private static DateTime GetDateTime(DataRow row, string name) => row.Table.Columns.Contains(name) && row[name] != DBNull.Value ? Convert.ToDateTime(row[name]) : DateTime.MinValue;
+
         private CourseSemesterOffering MapToCourseOffering(DataRow row)
         {
             return new CourseSemesterOffering
             {
-                Id = Convert.ToInt32(row["course_offering_id"]),
-                CourseId = Convert.ToInt32(row["course_id"]),
-                MaxCapacity = row["max_capacity"] == DBNull.Value ? null : Convert.ToInt32(row["max_capacity"]),
-                CurrentEnrollment = Convert.ToInt32(row["current_enrollment"])
+				Id = row.Table.Columns.Contains("course_offering_id") ? Convert.ToInt32(row["course_offering_id"]) : (row.Table.Columns.Contains("id") ? Convert.ToInt32(row["id"]) : 0),
+				CourseId = row.Table.Columns.Contains("course_id") ? Convert.ToInt32(row["course_id"]) : 0,
+				MaxCapacity = row.Table.Columns.Contains("max_capacity") && row["max_capacity"] != DBNull.Value ? Convert.ToInt32(row["max_capacity"]) : (int?)null,
+				CurrentEnrollment = row.Table.Columns.Contains("current_enrollment") && row["current_enrollment"] != DBNull.Value ? Convert.ToInt32(row["current_enrollment"]) : 0
             };
         }
 
@@ -344,13 +470,23 @@ namespace backend.Repositories
         {
             return new StudentProfile
             {
-                Id = Convert.ToInt32(row["id"]),
-                RegistrationNo = row["reg_no"].ToString(),
-                Cgpa = Convert.ToDecimal(row["cgpa"]),
-                CurrentCreditHours = Convert.ToDecimal(row["current_credit_hours"]),
-                CompletedCreditHours = Convert.ToDecimal(row["completed_credit_hours"]),
-                AttemptedCreditHours = Convert.ToDecimal(row["attempted_credit_hours"])
-            };
-        }
+				Id = row.Table.Columns.Contains("id") ? Convert.ToInt32(row["id"]) : 0,
+				UserId = row.Table.Columns.Contains("user_id") && row["user_id"] != DBNull.Value ? Convert.ToInt32(row["user_id"]) : 0,
+				RegistrationNo = row.Table.Columns.Contains("reg_no") ? row["reg_no"].ToString() ?? string.Empty : string.Empty,
+				EnrollYear = row.Table.Columns.Contains("enroll_year") && row["enroll_year"] != DBNull.Value ? Convert.ToInt32(row["enroll_year"]) : 0,
+				CurrentSemester = row.Table.Columns.Contains("current_semester") && row["current_semester"] != DBNull.Value ? Convert.ToInt32(row["current_semester"]) : (int?)null,
+				DepartmentId = row.Table.Columns.Contains("department_id") && row["department_id"] != DBNull.Value ? Convert.ToInt32(row["department_id"]) : 0,
+				DepartmentName = row.Table.Columns.Contains("department_name") ? row["department_name"].ToString() ?? string.Empty : string.Empty,
+				ProgramId = row.Table.Columns.Contains("program_id") && row["program_id"] != DBNull.Value ? Convert.ToInt32(row["program_id"]) : 0,
+				ProgramName = row.Table.Columns.Contains("program_name") ? row["program_name"].ToString() ?? string.Empty : string.Empty,
+				LevelId = row.Table.Columns.Contains("level_id") && row["level_id"] != DBNull.Value ? Convert.ToInt32(row["level_id"]) : 0,
+				LevelName = row.Table.Columns.Contains("level_name") ? row["level_name"].ToString() ?? string.Empty : string.Empty,
+				AcademicStatus = row.Table.Columns.Contains("academic_status") ? row["academic_status"].ToString() ?? string.Empty : string.Empty,
+				Cgpa = row.Table.Columns.Contains("cgpa") && row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0m,
+				CurrentCreditHours = row.Table.Columns.Contains("current_credit_hours") && row["current_credit_hours"] != DBNull.Value ? Convert.ToDecimal(row["current_credit_hours"]) : 0m,
+				CompletedCreditHours = row.Table.Columns.Contains("completed_credit_hours") && row["completed_credit_hours"] != DBNull.Value ? Convert.ToDecimal(row["completed_credit_hours"]) : 0m,
+				AttemptedCreditHours = row.Table.Columns.Contains("attempted_credit_hours") && row["attempted_credit_hours"] != DBNull.Value ? Convert.ToDecimal(row["attempted_credit_hours"]) : 0m
+			};
+		}
     }
 }

@@ -20,7 +20,12 @@ namespace backend.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPermissions()
         {
-            var profile = User.FindFirst("profile").Value;
+            var profile = User.FindFirst("profile")?.Value;
+            if (string.IsNullOrEmpty(profile))
+            {
+                return Unauthorized(new { message = "Profile claim not found" });
+            }
+
             var permissions = await _permissionService.GetProfilePermissions(profile);
             return Ok(permissions);
         }

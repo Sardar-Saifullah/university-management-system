@@ -10,20 +10,20 @@ namespace backend.Repositories
         Task<int> ApproveEnrollment(int enrollmentId, int adminId, int modifiedBy);
         Task<int> RejectEnrollment(int enrollmentId, int adminId, string rejectionReason, int modifiedBy);
         Task<IEnumerable<Enrollment>> GetPendingEnrollments();
-        Task<int> RequestCourseEnrollment(int studentId, int courseOfferingId, int createdBy);
-        Task<IEnumerable<CourseSemesterOffering>> GetAvailableCoursesForStudent(int studentId);
-        Task<IEnumerable<Enrollment>> GetEnrolledCoursesForStudent(int studentId);
+        Task<EnrollmentResponseDto> RequestCourseEnrollment(int studentId, int courseOfferingId, int createdBy);
+        Task<IEnumerable<CourseOfferingDto>> GetAvailableCoursesForStudent(int studentId);
+        Task<IEnumerable<EnrolledCourseDto>> GetEnrolledCoursesForStudent(int studentId);
         Task<int> CancelEnrollmentRequest(int enrollmentId, int studentId, int modifiedBy);
         Task<IEnumerable<Enrollment>> GetEnrollmentHistoryForStudent(int studentId);
-        Task<CreditLimitPolicy> GetCreditHourStatus(int studentId);
+        Task<CreditHourStatusDto?> GetCreditHourStatus(int studentId);
         Task<int> WithdrawFromCourse(int enrollmentId, int studentId, int modifiedBy, string reason);
-        Task<IEnumerable<CourseSemesterOffering>> GetAssignedCoursesForTeacher(int teacherId);
-        Task<IEnumerable<Enrollment>> GetEnrolledStudentsForCourse(int teacherId, int courseOfferingId);
-        Task<CourseSemesterOffering> GetCourseDetailsForTeacher(int teacherId, int courseOfferingId);
-        Task<StudentProfile> GetStudentAcademicHistory(int teacherId, int studentId);
-        Task<IEnumerable<Enrollment>> GetEnrollmentStatusHistory(int enrollmentId);
+        Task<IEnumerable<CourseOfferingDto>> GetAssignedCoursesForTeacher(int teacherId);
+        Task<IEnumerable<EnrolledStudentDto>> GetEnrolledStudentsForCourse(int teacherId, int courseOfferingId);
+        Task<CourseOfferingDto?> GetCourseDetailsForTeacher(int teacherId, int courseOfferingId);
+        Task<StudentProfile?> GetStudentAcademicHistory(int teacherId, int studentId);
+        Task<IEnumerable<EnrollmentStatusHistoryDto>> GetEnrollmentStatusHistory(int enrollmentId);
         Task<int> OverrideCreditLimit(int studentId, int policyId, int newMaxCredits, string reason, int approvedBy, DateTime? expiresAt);
         Task<PrerequisiteCheckDto> CheckCoursePrerequisites(int studentId, int courseId);
-        Task<CourseLoadDto> GetStudentCurrentCourseLoad(int studentId);
+        Task<CourseLoadDto?> GetStudentCurrentCourseLoad(int studentId);
     }
 }

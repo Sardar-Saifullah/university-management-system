@@ -1,5 +1,3 @@
-
-// Repositories/Implementations/CourseOfferingRepository.cs
 using backend.Models;
 using MySql.Data.MySqlClient;
 using System.Data;
@@ -9,6 +7,8 @@ using backend.Data;
 
 namespace backend.Repositories
 {
+  
+
     public class CourseOfferingRepository : ICourseOfferingRepository
     {
         private readonly IDatabaseContext _context;
@@ -26,8 +26,8 @@ namespace backend.Repositories
                 new MySqlParameter("p_course_id", offering.CourseId),
                 new MySqlParameter("p_semester_id", offering.SemesterId),
                 new MySqlParameter("p_max_capacity", offering.MaxCapacity),
-                new MySqlParameter("p_enrollment_start", offering.EnrollmentStart),
-                new MySqlParameter("p_enrollment_end", offering.EnrollmentEnd),
+                new MySqlParameter("p_enrollment_start", offering.EnrollmentStart.HasValue ? offering.EnrollmentStart.Value : (object)DBNull.Value),
+                new MySqlParameter("p_enrollment_end", offering.EnrollmentEnd.HasValue ? offering.EnrollmentEnd.Value : (object)DBNull.Value),
                 new MySqlParameter("p_offering_id", MySqlDbType.Int32) { Direction = ParameterDirection.Output }
             };
 
@@ -43,9 +43,9 @@ namespace backend.Repositories
             {
                 new MySqlParameter("p_user_id", userId),
                 new MySqlParameter("p_offering_id", id),
-                new MySqlParameter("p_max_capacity", offering.MaxCapacity),
-                new MySqlParameter("p_enrollment_start", offering.EnrollmentStart),
-                new MySqlParameter("p_enrollment_end", offering.EnrollmentEnd),
+                new MySqlParameter("p_max_capacity", offering.MaxCapacity.HasValue ? offering.MaxCapacity.Value : (object)DBNull.Value),
+                new MySqlParameter("p_enrollment_start", offering.EnrollmentStart.HasValue ? offering.EnrollmentStart.Value : (object)DBNull.Value),
+                new MySqlParameter("p_enrollment_end", offering.EnrollmentEnd.HasValue ? offering.EnrollmentEnd.Value : (object)DBNull.Value),
                 new MySqlParameter("p_is_active", offering.IsActive)
             };
 
@@ -67,13 +67,11 @@ namespace backend.Repositories
 
         public async Task<CourseSemesterOffering> GetById(int id)
         {
-            var parameters = new[]
-            {
-                new MySqlParameter("p_user_id", 1), // TODO: Replace with actual user
-                new MySqlParameter("p_offering_id", id)
-            };
+            // For this procedure, we need to pass a user ID even though it's just for authorization
+            var userIdParam = new MySqlParameter("p_user_id", 1); // You might want to get actual user ID
+            var offeringIdParam = new MySqlParameter("p_offering_id", id);
 
-            var result = await _context.ExecuteQueryAsync("sp_get_course_offering", parameters);
+            var result = await _context.ExecuteQueryAsync("sp_get_course_offering", userIdParam, offeringIdParam);
 
             if (result.Rows.Count == 0) return null;
 
@@ -83,10 +81,10 @@ namespace backend.Repositories
                 Id = Convert.ToInt32(row["id"]),
                 CourseId = Convert.ToInt32(row["course_id"]),
                 SemesterId = Convert.ToInt32(row["semester_id"]),
-                MaxCapacity = Convert.ToInt32(row["max_capacity"]),
+                MaxCapacity = row["max_capacity"] != DBNull.Value ? Convert.ToInt32(row["max_capacity"]) : (int?)null,
                 CurrentEnrollment = Convert.ToInt32(row["current_enrollment"]),
-                EnrollmentStart = row["enrollment_start"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_start"]) : null,
-                EnrollmentEnd = row["enrollment_end"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_end"]) : null,
+                EnrollmentStart = row["enrollment_start"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_start"]) : (DateTime?)null,
+                EnrollmentEnd = row["enrollment_end"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_end"]) : (DateTime?)null,
                 IsActive = Convert.ToBoolean(row["is_active"])
             };
         }
@@ -95,15 +93,15 @@ namespace backend.Repositories
         {
             var parameters = new[]
             {
-                new MySqlParameter("p_user_id", 1), // TODO: Replace with actual user
+                new MySqlParameter("p_user_id", 1), // Replace with actual user ID
                 new MySqlParameter("p_page", 1),
-                new MySqlParameter("p_page_size", 100),
-                new MySqlParameter("p_semester_id", null),
-                new MySqlParameter("p_department_id", null),
-                new MySqlParameter("p_program_id", null),
-                new MySqlParameter("p_level_id", null),
-                new MySqlParameter("p_is_active", null),
-                new MySqlParameter("p_search_term", null)
+                new MySqlParameter("p_page_size", 1000), // Increased for all records
+                new MySqlParameter("p_semester_id", DBNull.Value),
+                new MySqlParameter("p_department_id", DBNull.Value),
+                new MySqlParameter("p_program_id", DBNull.Value),
+                new MySqlParameter("p_level_id", DBNull.Value),
+                new MySqlParameter("p_is_active", DBNull.Value),
+                new MySqlParameter("p_search_term", DBNull.Value)
             };
 
             var result = await _context.ExecuteQueryAsync("sp_list_course_offerings", parameters);
@@ -116,10 +114,10 @@ namespace backend.Repositories
                     Id = Convert.ToInt32(row["id"]),
                     CourseId = Convert.ToInt32(row["course_id"]),
                     SemesterId = Convert.ToInt32(row["semester_id"]),
-                    MaxCapacity = Convert.ToInt32(row["max_capacity"]),
+                    MaxCapacity = row["max_capacity"] != DBNull.Value ? Convert.ToInt32(row["max_capacity"]) : (int?)null,
                     CurrentEnrollment = Convert.ToInt32(row["current_enrollment"]),
-                    EnrollmentStart = row["enrollment_start"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_start"]) : null,
-                    EnrollmentEnd = row["enrollment_end"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_end"]) : null,
+                    EnrollmentStart = row["enrollment_start"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_start"]) : (DateTime?)null,
+                    EnrollmentEnd = row["enrollment_end"] != DBNull.Value ? Convert.ToDateTime(row["enrollment_end"]) : (DateTime?)null,
                     IsActive = Convert.ToBoolean(row["is_active"])
                 });
             }
@@ -140,14 +138,22 @@ namespace backend.Repositories
 
             await _context.ExecuteNonQueryAsync("sp_bulk_upload_course_offerings", parameters);
 
-            var result = new BulkUploadResultDto
-            {
-                SuccessCount = Convert.ToInt32(parameters[2].Value),
-                ErrorCount = Convert.ToInt32(parameters[3].Value),
-                Errors = JsonSerializer.Deserialize<List<BulkUploadErrorDto>>(parameters[4].Value?.ToString() ?? "[]")
-            };
+            var successCount = parameters[2].Value != DBNull.Value ? Convert.ToInt32(parameters[2].Value) : 0;
+            var errorCount = parameters[3].Value != DBNull.Value ? Convert.ToInt32(parameters[3].Value) : 0;
 
-            return result;
+            List<BulkUploadErrorDto> errors = new List<BulkUploadErrorDto>();
+            if (parameters[4].Value != DBNull.Value)
+            {
+                var errorJson = parameters[4].Value.ToString();
+                errors = JsonSerializer.Deserialize<List<BulkUploadErrorDto>>(errorJson);
+            }
+
+            return new BulkUploadResultDto
+            {
+                SuccessCount = successCount,
+                ErrorCount = errorCount,
+                Errors = errors
+            };
         }
     }
 }

@@ -20,10 +20,12 @@ namespace backend.Dtos
         public decimal CurrentCreditHours { get; set; }
         public decimal CompletedCreditHours { get; set; }
         public decimal AttemptedCreditHours { get; set; }
+        public int LevelId { get; set; }
         public string LevelName { get; set; }
         public string CurrentSemesterName { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ModifiedAt { get; set; }
+        
     }
     public class StudentOwnProfileUpdateDto
     {

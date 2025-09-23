@@ -255,12 +255,16 @@ namespace backend.Dtos
             public int ActivityId { get; set; }
             public string ActivityName { get; set; } = string.Empty;
             public string ActivityUrl { get; set; } = string.Empty;
-            public bool CanCreate { get; set; }
+        public string ControllerName { get; set; } = string.Empty; // Added
+        public string ActionType { get; set; } = string.Empty;     // Added
+        public string ResourceName { get; set; } = string.Empty;  // Added
+        public bool CanCreate { get; set; }
             public bool CanRead { get; set; }
             public bool CanUpdate { get; set; }
             public bool CanDelete { get; set; }
             public bool CanExport { get; set; }
-        }
+        public bool IsActive { get; set; }                        // Added
+    }
 
 
     public class TerminateSessionsResponse

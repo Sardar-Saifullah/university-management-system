@@ -3,10 +3,12 @@ using backend.Models;
 using backend.Repositories;
 using backend.Utilities;
 using Microsoft.AspNetCore.Http;
-using System.Data;
+using System.Text.Json;
 
 namespace backend.Services
 {
+
+
     public class CourseService : ICourseService
     {
         private readonly ICourseRepository _courseRepository;
@@ -34,12 +36,12 @@ namespace backend.Services
             };
 
             var id = await _courseRepository.CreateCourse(course);
-            return await GetCourse(id);
+            return await GetCourse(id, userId);
         }
 
-        public async Task<CourseResponseDto> GetCourse(int id)
+        public async Task<CourseResponseDto> GetCourse(int id, int userId)
         {
-            var course = await _courseRepository.GetCourseById(id);
+            var course = await _courseRepository.GetCourseById(id, userId);
             if (course == null) return null;
 
             return new CourseResponseDto
@@ -50,117 +52,86 @@ namespace backend.Services
                 Description = course.Description,
                 CreditHours = course.CreditHours,
                 LevelId = course.LevelId,
-                DepartmentId = course.DepartmentId,
+                LevelName = course.LevelName,
                 ProgramId = course.ProgramId,
+                ProgramName = course.ProgramName,
+                DepartmentId = course.DepartmentId,
+                DepartmentName = course.DepartmentName,
+                DepartmentCode = course.DepartmentCode,
                 IsElective = course.IsElective,
                 IsActive = course.IsActive,
                 CreatedAt = course.CreatedAt,
-                ModifiedAt = course.ModifiedAt
+                ModifiedAt = course.ModifiedAt,
+                ActiveOfferingsCount = course.ActiveOfferingsCount
             };
         }
 
-        public async Task<CourseListResponseDto> GetCourses(int page, int pageSize, int? departmentId, int? programId, int? levelId, bool? isElective, string searchTerm)
+        public async Task<CourseListResponseDto> GetCourses(int userId, int page, int pageSize, int? departmentId, int? programId, int? levelId, bool? isElective, string searchTerm, bool onlyActive)
         {
             return await _courseRepository.GetFilteredCourses(
-                page, pageSize, departmentId, programId, levelId, isElective, searchTerm);
+                userId, page, pageSize, departmentId, programId, levelId, isElective, searchTerm, onlyActive);
         }
 
         public async Task<CourseResponseDto> UpdateCourse(int id, CourseUpdateDto dto, int userId)
         {
-            var existingCourse = await _courseRepository.GetCourseById(id);
-            if (existingCourse == null) return null;
+            try
+            {
+                var existingCourse = await _courseRepository.GetCourseById(id, userId);
+                if (existingCourse == null) return null;
 
-            existingCourse.Title = dto.Title;
-            existingCourse.Description = dto.Description;
-            existingCourse.CreditHours = dto.CreditHours;
-            existingCourse.LevelId = dto.LevelId;
-            existingCourse.ProgramId = dto.ProgramId;
-            existingCourse.DepartmentId = dto.DepartmentId;
-            existingCourse.IsElective = dto.IsElective;
-            existingCourse.IsActive = dto.IsActive;
-            existingCourse.ModifiedBy = userId;
+                // Only update provided fields
+                if (!string.IsNullOrEmpty(dto.Title)) existingCourse.Title = dto.Title;
+                if (dto.Description != null) existingCourse.Description = dto.Description;
+                if (dto.CreditHours > 0) existingCourse.CreditHours = dto.CreditHours;
+                if (dto.LevelId > 0) existingCourse.LevelId = dto.LevelId;
+                if (dto.ProgramId.HasValue) existingCourse.ProgramId = dto.ProgramId;
+                if (dto.DepartmentId > 0) existingCourse.DepartmentId = dto.DepartmentId;
 
-            var success = await _courseRepository.UpdateCourse(existingCourse);
-            if (!success) return null;
+                // For boolean values in the Course model (which are non-nullable), we can assign directly
+                // since the DTO properties are required and will always have values
+                existingCourse.IsElective = dto.IsElective;
+                existingCourse.IsActive = dto.IsActive;
 
-            return await GetCourse(id);
+                existingCourse.ModifiedBy = userId;
+
+                var success = await _courseRepository.UpdateCourse(existingCourse);
+                if (!success) return null;
+
+                return await GetCourse(id, userId);
+            }
+            catch (ApplicationException ex)
+            {
+                // Log the error and rethrow or handle appropriately
+                throw new ApplicationException($"Failed to update course: {ex.Message}");
+            }
         }
 
         public async Task<bool> DeleteCourse(int id, int userId)
         {
-            return await _courseRepository.DeleteCourse(id, userId);
+            try { 
+            return await _courseRepository.DeleteCourse(id, userId);}
+            catch (ApplicationException ex)
+    {
+                // Log the error and rethrow or handle appropriately
+                throw new ApplicationException($"Failed to delete course: {ex.Message}");
+            }
         }
 
         public async Task<BulkUploadResultDto> BulkUploadCourses(IFormFile file, int userId)
         {
             var jsonDoc = await _jsonFileProcessor.ProcessJsonFile(file);
-            var jsonArray = jsonDoc.RootElement.EnumerateArray();
+            var jsonArray = jsonDoc.RootElement;
 
-            var dataTable = new DataTable();
-            dataTable.Columns.Add("code", typeof(string));
-            dataTable.Columns.Add("title", typeof(string));
-            dataTable.Columns.Add("description", typeof(string));
-            dataTable.Columns.Add("credit_hours", typeof(decimal));
-            dataTable.Columns.Add("level_id", typeof(int));
-            dataTable.Columns.Add("program_id", typeof(int));
-            dataTable.Columns.Add("dep_id", typeof(int));
-            dataTable.Columns.Add("is_elective", typeof(bool));
+            // Convert to JSON string for stored procedure
+            var jsonData = jsonArray.ToString();
 
-            foreach (var item in jsonArray)
-            {
-                dataTable.Rows.Add(
-                    item.GetProperty("code").GetString(),
-                    item.GetProperty("title").GetString(),
-                    item.TryGetProperty("description", out var desc) ? desc.GetString() : null,
-                    item.GetProperty("credit_hours").GetDecimal(),
-                    item.GetProperty("level_id").GetInt32(),
-                    item.TryGetProperty("program_id", out var prog) ? prog.GetInt32() : (object)DBNull.Value,
-                    item.GetProperty("dep_id").GetInt32(),
-                    item.TryGetProperty("is_elective", out var elective) ? elective.GetBoolean() : false
-                );
-            }
-
-            var successCount = await _courseRepository.BulkUploadCourses(dataTable, userId);
-            return new BulkUploadResultDto
-            {
-                SuccessCount = successCount,
-                ErrorCount = jsonArray.Count() - successCount,
-                Errors = new List<BulkUploadErrorDto>()
-            };
+            return await _courseRepository.BulkUploadCourses(jsonData, userId);
         }
 
-        public async Task<IEnumerable<PrerequisiteDto>> GetCoursePrerequisites(int courseId)
+        public async Task<CourseListResponseDto> SearchCoursesLightweight(int userId, string searchTerm, int? departmentId, int? levelId, bool? isElective, int page, int pageSize)
         {
-            var prerequisites = await _courseRepository.GetPrerequisitesForCourse(courseId);
-            return prerequisites.Select(p => new PrerequisiteDto
-            {
-                CourseId = p.CourseId,
-                PrerequisiteCourseId = p.PrerequisiteCourseId,
-                IsMandatory = p.IsMandatory,
-                MinimumGrade = p.MinimumGrade
-            });
-        }
-
-        public async Task<PrerequisiteDto> AddPrerequisite(PrerequisiteDto dto, int userId)
-        {
-            var prerequisite = new CoursePrerequisite
-            {
-                CourseId = dto.CourseId,
-                PrerequisiteCourseId = dto.PrerequisiteCourseId,
-                IsMandatory = dto.IsMandatory,
-                MinimumGrade = dto.MinimumGrade,
-                CreatedBy = userId
-            };
-
-            var success = await _courseRepository.AddPrerequisite(prerequisite);
-            if (!success) return null;
-
-            return dto;
-        }
-
-        public async Task<bool> RemovePrerequisite(int prerequisiteId, int userId)
-        {
-            return await _courseRepository.RemovePrerequisite(prerequisiteId, userId);
+            return await _courseRepository.SearchCoursesLightweight(
+                userId, searchTerm, departmentId, levelId, isElective, page, pageSize);
         }
     }
 }

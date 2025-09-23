@@ -89,6 +89,7 @@ namespace backend.Repositories
                 new MySqlParameter("p_user_id", userId),
                 new MySqlParameter("p_name", updateDto.Name ?? (object)DBNull.Value),
                 new MySqlParameter("p_email", updateDto.Email ?? (object)DBNull.Value),
+                new MySqlParameter("p_contact", updateDto.Contact ?? (object)DBNull.Value),
                 new MySqlParameter("p_profile_id", updateDto.ProfileId ?? (object)DBNull.Value),
                 new MySqlParameter("p_is_active", updateDto.IsActive ?? (object)DBNull.Value)
             };
@@ -202,7 +203,8 @@ namespace backend.Repositories
                 new MySqlParameter("p_academic_status", updateDto.AcademicStatus ?? (object)DBNull.Value),
                 new MySqlParameter("p_cgpa", updateDto.Cgpa ?? (object)DBNull.Value),
                 new MySqlParameter("p_current_credit_hours", updateDto.CurrentCreditHours ?? (object)DBNull.Value),
-                new MySqlParameter("p_completed_credit_hours", updateDto.CompletedCreditHours ?? (object)DBNull.Value)
+                new MySqlParameter("p_completed_credit_hours", updateDto.CompletedCreditHours ?? (object)DBNull.Value),
+                new MySqlParameter("p_attempted_credit_hours", updateDto.AttemptedCreditHours ?? (object)DBNull.Value)
             };
 
             return await _context.ExecuteNonQueryAsync("admin_update_student_profile", parameters);
@@ -228,7 +230,7 @@ namespace backend.Repositories
                 DepId = row.Field<int>("dep_id"),
                 DepartmentName = row.Field<string>("department_name"),
                 Designation = row.Field<string>("designation"),
-                HireDate = DateOnly.FromDateTime(row.Field<DateTime>("hire_date")),
+                HireDate = row.Field<DateTime>("hire_date"),
                 Qualification = row.Field<string?>("qualification"),
                 Specialization = row.Field<string?>("specialization"),
                 ExperienceYears = row.Field<int>("experience_years"),
@@ -269,7 +271,7 @@ namespace backend.Repositories
                 DepId = row.Field<int>("dep_id"),
                 DepartmentName = row.Field<string>("department_name"),
                 Designation = row.Field<string>("designation"),
-                HireDate = DateOnly.FromDateTime(row.Field<DateTime>("hire_date")),
+                HireDate = row.Field<DateTime>("hire_date"),
                 Qualification = row.Field<string?>("qualification"),
                 Specialization = row.Field<string?>("specialization"),
                 ExperienceYears = row.Field<int>("experience_years"),
@@ -280,16 +282,21 @@ namespace backend.Repositories
 
         public async Task<int> UpdateTeacherProfileAsync(int adminId, int teacherId, TeacherProfileUpdateDto updateDto)
         {
+            var hireDateParam = updateDto.HireDate.HasValue
+    ? (object)updateDto.HireDate.Value
+    : DBNull.Value;
+
             var parameters = new[]
             {
-                new MySqlParameter("p_admin_id", adminId),
-                new MySqlParameter("p_teacher_id", teacherId),
-                new MySqlParameter("p_dep_id", updateDto.DepId ?? (object)DBNull.Value),
-                new MySqlParameter("p_designation", updateDto.Designation ?? (object)DBNull.Value),
-                new MySqlParameter("p_qualification", updateDto.Qualification ?? (object)DBNull.Value),
-                new MySqlParameter("p_specialization", updateDto.Specialization ?? (object)DBNull.Value),
-                new MySqlParameter("p_experience_years", updateDto.ExperienceYears ?? (object)DBNull.Value)
-            };
+        new MySqlParameter("p_admin_id", adminId),
+        new MySqlParameter("p_teacher_id", teacherId),
+        new MySqlParameter("p_dep_id", updateDto.DepId ?? (object)DBNull.Value),
+        new MySqlParameter("p_designation", updateDto.Designation ?? (object)DBNull.Value),
+        new MySqlParameter("p_hire_date", hireDateParam),
+        new MySqlParameter("p_qualification", updateDto.Qualification ?? (object)DBNull.Value),
+        new MySqlParameter("p_specialization", updateDto.Specialization ?? (object)DBNull.Value),
+        new MySqlParameter("p_experience_years", updateDto.ExperienceYears ?? (object)DBNull.Value)
+    };
 
             return await _context.ExecuteNonQueryAsync("admin_update_teacher_profile", parameters);
         }
@@ -314,7 +321,7 @@ namespace backend.Repositories
                 Level = row.Field<string>("level"),
                 AccessLevel = string.IsNullOrEmpty(row.Field<string?>("access_level")) ?
                     null : JsonDocument.Parse(row.Field<string>("access_level")),
-                HireDate = DateOnly.FromDateTime(row.Field<DateTime>("hire_date")),
+                HireDate = row.Field<DateTime>("hire_date"),
                 DepartmentId = row.Field<int?>("department_id"),
                 DepartmentName = row.Field<string?>("department_name"),
                 CreatedAt = row.Field<DateTime>("created_at"),
@@ -354,7 +361,7 @@ namespace backend.Repositories
                 Level = row.Field<string>("level"),
                 AccessLevel = string.IsNullOrEmpty(row.Field<string?>("access_level")) ?
                     null : JsonDocument.Parse(row.Field<string>("access_level")),
-                HireDate = DateOnly.FromDateTime(row.Field<DateTime>("hire_date")),
+                HireDate = row.Field<DateTime>("hire_date"),
                 DepartmentId = row.Field<int?>("department_id"),
                 DepartmentName = row.Field<string?>("department_name"),
                 CreatedAt = row.Field<DateTime>("created_at"),
@@ -364,17 +371,29 @@ namespace backend.Repositories
 
         public async Task<int> UpdateAdminProfileAsync(int adminId, int targetAdminId, AdminProfileUpdateDto updateDto)
         {
-            var accessLevelJson = updateDto.AccessLevel?.RootElement.ToString() ?? (object)DBNull.Value;
-            var hireDate = updateDto.HireDate?.ToDateTime(TimeOnly.MinValue) ?? (object)DBNull.Value;
+            // Handle access level conversion
+            object accessLevelParam = DBNull.Value;
+            if (updateDto.AccessLevel != null)
+            {
+                accessLevelParam = updateDto.AccessLevel.RootElement.GetRawText();
+            }
+
+            // Handle hire date conversion - use DateTime directly, not DateOnly
+            object hireDateParam = DBNull.Value;
+            if (updateDto.HireDate.HasValue)
+            {
+                hireDateParam = updateDto.HireDate.Value;
+            }
 
             var parameters = new[]
             {
-                new MySqlParameter("p_admin_id", adminId),
-                new MySqlParameter("p_target_admin_id", targetAdminId),
-                new MySqlParameter("p_level", updateDto.Level ?? (object)DBNull.Value),
-                new MySqlParameter("p_access_level", accessLevelJson),
-                new MySqlParameter("p_department_id", updateDto.DepartmentId ?? (object)DBNull.Value)
-            };
+        new MySqlParameter("p_admin_id", adminId),
+        new MySqlParameter("p_target_admin_id", targetAdminId),
+        new MySqlParameter("p_level", updateDto.Level ?? (object)DBNull.Value),
+        new MySqlParameter("p_access_level", accessLevelParam),
+        new MySqlParameter("p_hire_date", hireDateParam),
+        new MySqlParameter("p_department_id", updateDto.DepartmentId ?? (object)DBNull.Value)
+    };
 
             return await _context.ExecuteNonQueryAsync("admin_update_admin_profile", parameters);
         }

@@ -21,8 +21,11 @@ builder.Services.AddControllers(options =>
 
 // Database Context
 builder.Services.AddScoped<IDatabaseContext, DatabaseContext>();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<SessionManagementFilter>();
+builder.Services.AddScoped<PermissionFilter>();
+
 // Repositories
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IRegistrationRepository, RegistrationRepository>();
@@ -49,7 +52,7 @@ builder.Services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
 
 
 // Services
-builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 
@@ -59,7 +62,7 @@ builder.Services.AddScoped<ILevelService, LevelService>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IAcademicProgramService, AcademicProgramService>();
 builder.Services.AddScoped<ISemesterService, SemesterService>();
-builder.Services.AddScoped<IProfilePictureRepository, ProfilePictureRepository>();
+builder.Services.AddScoped<IProfilePictureService, ProfilePictureService>();
 //builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
@@ -70,7 +73,7 @@ builder.Services.AddScoped<ITeacherAssignmentService, TeacherAssignmentService>(
 builder.Services.AddScoped<IPrerequisiteService, PrerequisiteService>();
 builder.Services.AddScoped<ICreditLimitPolicyService, CreditLimitPolicyService>();
 builder.Services.AddScoped<ICreditLimitOverrideService, CreditLimitOverrideService>();
-builder.Services.AddScoped<ICourseHistoryService, CourseHistoryService>();
+//builder.Services.AddScoped<ICourseHistoryService, CourseHistoryService>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 
 // Utilities
@@ -78,6 +81,8 @@ builder.Services.AddSingleton<IJwtHandler, JwtHandler>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 builder.Services.AddSingleton<IImageProcessor, ImageProcessor>();
 builder.Services.AddSingleton<IJsonFileProcessor, JsonFileProcessor>();
+
+
 
 // Authentication - Modified configuration
 builder.Services.AddAuthentication(options =>

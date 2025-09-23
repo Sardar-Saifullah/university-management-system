@@ -82,6 +82,7 @@ namespace backend.Dtos
         public string? OverrideReason { get; set; }
         public DateTime? OverrideExpiry { get; set; }
         public string? ApprovedBy { get; set; }
+        public bool HasOverride { get; set; }
     }
 
     public class WithdrawalRequestDto
@@ -135,4 +136,20 @@ namespace backend.Dtos
         public DateTime? ExpiresAt { get; set; }
     }
 
+    public class EnrolledStudentDto
+    {
+        public int EnrollmentId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public DateTime EnrollmentDate { get; set; }
+        public DateTime? ApprovalDate { get; set; }
+        public int StudentId { get; set; }
+        public string RegNo { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public int? CurrentSemester { get; set; }
+        public decimal Cgpa { get; set; }
+        public decimal CurrentCreditHours { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
+        public string ProgramName { get; set; } = string.Empty;
+        public string LevelName { get; set; } = string.Empty;
+    }
 }

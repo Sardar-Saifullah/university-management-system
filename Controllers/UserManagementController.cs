@@ -31,10 +31,6 @@ namespace backend.Controllers
                 var result = await _userManagementService.GetUsersAsync(adminId, request, profileId, isActive);
                 return Ok(result);
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred while fetching users", error = ex.Message });
@@ -54,10 +50,6 @@ namespace backend.Controllers
                     return NotFound(new { message = "User not found" });
 
                 return Ok(user);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -80,10 +72,6 @@ namespace backend.Controllers
                 var updatedUser = await _userManagementService.GetUserByIdAsync(adminId, userId);
                 return Ok(updatedUser);
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred while updating user", error = ex.Message });
@@ -104,10 +92,6 @@ namespace backend.Controllers
 
                 return NoContent();
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred while deleting user", error = ex.Message });
@@ -125,10 +109,6 @@ namespace backend.Controllers
                 var adminId = int.Parse(User.FindFirst("id")?.Value ?? "0");
                 var result = await _userManagementService.GetStudentProfilesAsync(adminId, request, academicStatus);
                 return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -149,10 +129,6 @@ namespace backend.Controllers
                     return NotFound(new { message = "Student not found" });
 
                 return Ok(student);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -176,10 +152,6 @@ namespace backend.Controllers
                 var updatedStudent = await _userManagementService.GetStudentProfileByIdAsync(adminId, studentId);
                 return Ok(updatedStudent);
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred while updating student", error = ex.Message });
@@ -197,10 +169,6 @@ namespace backend.Controllers
                 var adminId = int.Parse(User.FindFirst("id")?.Value ?? "0");
                 var result = await _userManagementService.GetTeacherProfilesAsync(adminId, request, depId);
                 return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -222,10 +190,6 @@ namespace backend.Controllers
 
                 return Ok(teacher);
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred while fetching teacher", error = ex.Message });
@@ -235,22 +199,31 @@ namespace backend.Controllers
         [HttpPut("teachers/{teacherId}")]
         [PermissionRequired("UserManagement", "update", "teacher")]
         public async Task<ActionResult<TeacherProfileResponseDto>> UpdateTeacher(
-            int teacherId, [FromBody] TeacherProfileUpdateDto updateDto)
+     int teacherId, [FromBody] TeacherProfileUpdateDto updateDto)
         {
             try
             {
                 var adminId = int.Parse(User.FindFirst("id")?.Value ?? "0");
+
+                // Check if teacher exists first
+                var existingTeacher = await _userManagementService.GetTeacherProfileByIdAsync(adminId, teacherId);
+                if (existingTeacher == null)
+                {
+                    return NotFound(new { message = "Teacher not found" });
+                }
+
+                // Attempt update - this will return true even if no changes were made
                 var success = await _userManagementService.UpdateTeacherProfileAsync(adminId, teacherId, updateDto);
 
                 if (!success)
-                    return NotFound(new { message = "Teacher not found or no changes made" });
+                {
+                    // This should only happen if there was an unexpected error
+                    return StatusCode(500, new { message = "An error occurred while updating teacher" });
+                }
 
+                // Return the updated teacher data
                 var updatedTeacher = await _userManagementService.GetTeacherProfileByIdAsync(adminId, teacherId);
                 return Ok(updatedTeacher);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -269,10 +242,6 @@ namespace backend.Controllers
                 var adminId = int.Parse(User.FindFirst("id")?.Value ?? "0");
                 var result = await _userManagementService.GetAdminProfilesAsync(adminId, request, level);
                 return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -294,10 +263,6 @@ namespace backend.Controllers
 
                 return Ok(admin);
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred while fetching admin", error = ex.Message });
@@ -307,26 +272,43 @@ namespace backend.Controllers
         [HttpPut("admins/{adminProfileId}")]
         [PermissionRequired("UserManagement", "update", "admin")]
         public async Task<ActionResult<AdminProfileResponseDto>> UpdateAdmin(
-            int adminProfileId, [FromBody] AdminProfileUpdateDto updateDto)
+     int adminProfileId, [FromBody] AdminProfileUpdateDto updateDto)
         {
             try
             {
                 var adminId = int.Parse(User.FindFirst("id")?.Value ?? "0");
+
+                var existingAdmin = await _userManagementService.GetAdminProfileByIdAsync(adminId, adminProfileId);
+                if (existingAdmin == null)
+                {
+                    return NotFound(new { message = "Admin not found" });
+                }
+
                 var success = await _userManagementService.UpdateAdminProfileAsync(adminId, adminProfileId, updateDto);
 
                 if (!success)
-                    return NotFound(new { message = "Admin not found or no changes made" });
+                {
+                    return StatusCode(500, new
+                    {
+                        message = "Failed to update admin profile",
+                        details = "Please check the server logs for more information"
+                    });
+                }
 
                 var updatedAdmin = await _userManagementService.GetAdminProfileByIdAsync(adminId, adminProfileId);
                 return Ok(updatedAdmin);
             }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while updating admin", error = ex.Message });
+                // Log the full exception for debugging
+                Console.WriteLine($"Error in UpdateAdmin: {ex}");
+
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while updating admin",
+                    error = ex.Message,
+                    details = ex.InnerException?.Message
+                });
             }
         }
     }

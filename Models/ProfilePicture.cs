@@ -24,6 +24,7 @@
         public string MimeType { get; set; } = string.Empty;
         public string StorageType { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+        public bool IsCurrentActive { get; set; }
         public DateTime UploadedAt { get; set; }
         public string UploadedByName { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }

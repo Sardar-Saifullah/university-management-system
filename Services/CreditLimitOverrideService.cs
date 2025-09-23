@@ -36,9 +36,9 @@ namespace backend.Services
             if (student == null)
                 throw new KeyNotFoundException($"Student with ID {dto.StudentId} not found");
 
-            // Validate approver is admin
-            var admin = await _adminRepository.GetAdminProfile(approvedByUserId);
-            if (admin == null)
+            // Check if user has admin privileges (simpler check without calling admin profile)
+            var isAdmin = await _adminRepository.IsUserAdmin(approvedByUserId);
+            if (!isAdmin)
                 throw new UnauthorizedAccessException("Only admin users can create credit limit overrides");
 
             var overrideEntity = new CreditLimitOverride
@@ -48,8 +48,8 @@ namespace backend.Services
                 NewMaxCredits = dto.NewMaxCredits,
                 Reason = dto.Reason,
                 ExpiresAt = dto.ExpiresAt,
-                ApprovedBy = admin.Id,
-                CreatedBy = approvedByUserId
+                CreatedBy = approvedByUserId,
+                ModifiedBy = approvedByUserId
             };
 
             var id = await _overrideRepository.CreateAsync(overrideEntity, approvedByUserId);
@@ -103,6 +103,17 @@ namespace backend.Services
 
         public async Task<bool> DeleteAsync(int id, int modifiedBy)
         {
+            // Check if override exists
+            var existingOverride = await _overrideRepository.GetByIdAsync(id);
+            if (existingOverride == null)
+                throw new KeyNotFoundException($"Credit limit override with ID {id} not found");
+
+            // Validate user is admin
+            var isAdmin = await _adminRepository.IsUserAdmin(modifiedBy);
+            if (!isAdmin)
+                throw new UnauthorizedAccessException("Only admin users can delete credit limit overrides");
+
+            // Perform deletion
             return await _overrideRepository.DeleteAsync(id, modifiedBy);
         }
 
@@ -117,7 +128,7 @@ namespace backend.Services
                 StudentRegNo = overrideEntity.StudentRegNo ?? "Unknown",
                 StudentName = overrideEntity.StudentName ?? "Unknown Student",
                 NewMaxCredits = overrideEntity.NewMaxCredits,
-                DefaultMaxCredits = 0, // Would need to fetch from policy
+                DefaultMaxCredits = 0, // You might want to fetch this from the actual policy
                 Reason = overrideEntity.Reason,
                 ApprovedBy = overrideEntity.ApprovedBy,
                 ApprovedByName = overrideEntity.ApprovedByName ?? "Unknown Admin",

@@ -18,7 +18,7 @@ namespace backend.Services
         Task<CreditHourStatusDto> GetCreditHourStatus(int studentId);
         Task<bool> WithdrawFromCourse(int enrollmentId, int studentId, int modifiedBy, string reason);
         Task<IEnumerable<CourseOfferingDto>> GetAssignedCoursesForTeacher(int teacherId);
-        Task<IEnumerable<EnrolledCourseDto>> GetEnrolledStudentsForCourse(int teacherId, int courseOfferingId);
+        Task<IEnumerable<EnrolledStudentDto>> GetEnrolledStudentsForCourse(int teacherId, int courseOfferingId);
         Task<CourseOfferingDto> GetCourseDetailsForTeacher(int teacherId, int courseOfferingId);
         Task<StudentProfile> GetStudentAcademicHistory(int teacherId, int studentId);
         Task<IEnumerable<EnrollmentStatusHistoryDto>> GetEnrollmentStatusHistory(int enrollmentId);

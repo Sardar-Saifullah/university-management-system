@@ -38,35 +38,17 @@ namespace backend.Dtos
         public DateTime SemesterEndDate { get; set; }
         public int? MaxCapacity { get; set; }
         public int CurrentEnrollment { get; set; }
-
         public DateTime? EnrollmentStart { get; set; }
         public DateTime? EnrollmentEnd { get; set; }
-   
         public int DepartmentId { get; set; }
-        public string DepartmentName { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
         public int? ProgramId { get; set; }
-        public string ProgramName { get; set; }
+        public string ProgramName { get; set; } = string.Empty;
         public int LevelId { get; set; }
-        public string LevelName { get; set; }
+        public string LevelName { get; set; } = string.Empty;
         public decimal CreditHours { get; set; }
         public bool IsActive { get; set; }
     }
 
-
    
-
-    public class CourseOfferingBulkUploadDto
-    {
-        [Required(ErrorMessage = "JSON file is required")]
-        public IFormFile JsonFile { get; set; }
-    }
-
-    
-    public class CourseOfferingBulkErrorDto
-    {
-        public int Index { get; set; }
-        public string CourseId { get; set; } = string.Empty;
-        public string SemesterId { get; set; } = string.Empty;
-        public string Message  { get; set; } = string.Empty;
-    }
 }

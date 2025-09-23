@@ -112,7 +112,23 @@ namespace backend.Controllers
             {
                 var modifiedBy = GetCurrentUserId();
                 var success = await _overrideService.DeleteAsync(id, modifiedBy);
-                return Ok(new { success });
+
+                if (!success)
+                    return NotFound(new { message = "Credit limit override not found" });
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Credit limit override deleted successfully"
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(); // Or return Unauthorized with message
             }
             catch (Exception ex)
             {

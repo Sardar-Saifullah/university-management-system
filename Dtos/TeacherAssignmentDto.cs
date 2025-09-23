@@ -2,27 +2,27 @@
 
 namespace backend.Dtos
 {
-    
-        public class TeacherAssignmentCreateDto
-        {
-            [Required]
-            public int TeacherId { get; set; }
 
-            [Required]
-            public int CourseOfferingId { get; set; }
+    public class TeacherAssignmentCreateDto
+    {
+        [Required]
+        public int TeacherId { get; set; }
 
-            public bool IsPrimary { get; set; } = true;
-        }
-        public class TeacherAssignmentUpdateDto
-        {
-            [Required]
-            public bool IsPrimary { get; set; }
-        }
+        [Required]
+        public int CourseOfferingId { get; set; }
+
+        public bool IsPrimary { get; set; } = true;
+    }
+    public class TeacherAssignmentUpdateDto
+    {
+        [Required]
+        public bool IsPrimary { get; set; }
+    }
     public class TeacherAssignmentResponseDto
     {
         public int Id { get; set; }
-        public int TeacherId { get; set; }
-        public string TeacherName { get; set; }
+        public int TeacherId { get; set; } = 0;
+        public string TeacherName { get; set; } = string.Empty;
         public int CourseOfferingId { get; set; }
         public string CourseCode { get; set; }
         public string CourseTitle { get; set; }
@@ -49,4 +49,4 @@ namespace backend.Dtos
         }
     }
 
-    }
+}

@@ -14,6 +14,7 @@ namespace backend.Services
 
 
 
+
         public AuthService(
             IAuthRepository authRepository,
             IJwtHandler jwtHandler,
@@ -103,8 +104,21 @@ namespace backend.Services
         {
             var jti = Guid.NewGuid().ToString();
             var token = _jwtHandler.GenerateToken(userResponse.Id, userResponse.Name, userResponse.ProfileName, jti);
-            var session = await CreateSession(userResponse.Id, "Web Browser",jti);
+            var session = await CreateSession(userResponse.Id, "Web Browser", jti);
             var permissions = await GetProfilePermissions(userResponse.ProfileName);
+
+            // Debug: Log permissions count and details
+            Console.WriteLine($"Generated auth response for {userResponse.Name} ({userResponse.ProfileName})");
+            Console.WriteLine($"Permissions count: {permissions?.Count}");
+
+            if (permissions != null)
+            {
+                foreach (var perm in permissions)
+                {
+                    Console.WriteLine($"Permission: {perm.ActivityName} (Read: {perm.CanRead}, Write: {perm.CanCreate})");
+                }
+            }
+
             return new AuthResponse
             {
                 Token = token,
@@ -116,11 +130,10 @@ namespace backend.Services
                 ProfilePicType = userResponse.ProfilePictureType,
                 SessionId = session.SessionId,
                 ExpiresAt = session.ExpiresAt,
-                // Add any additional fields you need
                 RegistrationNo = userResponse.ProfileName == "Student" ? userResponse.RegistrationNo : null,
                 ProgramName = userResponse.ProfileName == "Student" ? userResponse.ProgramName : null,
                 Designation = userResponse.ProfileName == "Teacher" ? userResponse.Designation : null,
-                Permissions = permissions
+                Permissions = permissions ?? new List<PermissionResponse>()
             };
         }
 

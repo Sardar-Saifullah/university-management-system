@@ -22,26 +22,34 @@ namespace backend.Repositories
         {
             var parameters = new[]
             {
-                new MySqlParameter("p_teacher_id", teacherId),
-                new MySqlParameter("p_course_offering_id", courseOfferingId),
-                new MySqlParameter("p_is_primary", isPrimary),
-                new MySqlParameter("p_admin_id", adminId),
-                new MySqlParameter("p_result_message", MySqlDbType.VarChar, 255) { Direction = ParameterDirection.Output }
-            };
+        new MySqlParameter("p_teacher_id", teacherId),
+        new MySqlParameter("p_course_offering_id", courseOfferingId),
+        new MySqlParameter("p_is_primary", isPrimary),
+        new MySqlParameter("p_admin_id", adminId),
+        new MySqlParameter("p_assignment_id", MySqlDbType.Int32) { Direction = ParameterDirection.Output },
+        new MySqlParameter("p_result_message", MySqlDbType.VarChar, 255) { Direction = ParameterDirection.Output }
+    };
 
-            await _context.ExecuteNonQueryAsync("sp_AssignTeacherToCourse", parameters);
+            try
+            {
+                await _context.ExecuteNonQueryAsync("sp_AssignTeacherToCourse", parameters);
 
-            var resultMessage = parameters[4].Value.ToString();
-            if (resultMessage.StartsWith("Error:"))
-                throw new Exception(resultMessage);
+                var resultMessage = parameters[5].Value?.ToString();
+                var assignmentId = parameters[4].Value != DBNull.Value ? Convert.ToInt32(parameters[4].Value) : -1;
 
-            // Get the last inserted ID
-            var assignment = (await _context.ExecuteQueryAsync(
-                "SELECT id FROM teacher_assignment WHERE teacher_id = @teacherId AND course_offering_id = @courseOfferingId ORDER BY id DESC LIMIT 1",
-                new MySqlParameter("@teacherId", teacherId),
-                new MySqlParameter("@courseOfferingId", courseOfferingId))).Rows[0];
+                if (assignmentId == -1 || !string.IsNullOrEmpty(resultMessage) && resultMessage.StartsWith("Error:"))
+                    throw new Exception(resultMessage ?? "Unknown error occurred");
 
-            return Convert.ToInt32(assignment["id"]);
+                return assignmentId;
+            }
+            catch (MySqlException ex) when (ex.Number == 1062)
+            {
+                throw new Exception("Duplicate assignment detected. This teacher is already assigned to this course.");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to assign teacher to course: {ex.Message}");
+            }
         }
 
         public async Task<bool> UpdateTeacherAssignmentAsync(int assignmentId, bool isPrimary, int adminId)
@@ -107,29 +115,55 @@ namespace backend.Repositories
         {
             var parameters = new[]
             {
-                new MySqlParameter("p_user_id", userId),
-                new MySqlParameter("p_include_inactive", includeInactive)
-            };
+        new MySqlParameter("p_user_id", userId),
+        new MySqlParameter("p_include_inactive", includeInactive)
+    };
 
-            var result = await _context.ExecuteQueryAsync("sp_GetTeacherAssignments", parameters);
-
-            if (result.Rows.Count > 0 && result.Rows[0]["error_message"] != DBNull.Value)
-                throw new Exception(result.Rows[0]["error_message"].ToString());
-
-            return result.AsEnumerable().Select(row => new TeacherAssignmentDetail
+            try
             {
-                Id = Convert.ToInt32(row["assignment_id"]),
-                CourseOfferingId = Convert.ToInt32(row["course_offering_id"]),
-                CourseCode = row["course_code"].ToString(),
-                CourseTitle = row["course_title"].ToString(),
-                SemesterName = row["semester_name"].ToString(),
-                SemesterStart = Convert.ToDateTime(row["semester_start"]),
-                SemesterEnd = Convert.ToDateTime(row["semester_end"]),
-                IsPrimary = Convert.ToBoolean(row["is_primary"]),
-                CreatedAt = Convert.ToDateTime(row["created_at"]),
-                ModifiedAt = Convert.ToDateTime(row["modified_at"]),
-                IsActive = Convert.ToBoolean(row["is_active"])
-            }).ToList();
+                var result = await _context.ExecuteQueryAsync("sp_GetTeacherAssignments", parameters);
+
+                // First, get the teacher ID for this user
+                var teacherResult = await _context.ExecuteQueryAsync(
+                    "SELECT id FROM teacher_profile WHERE user_id = @userId AND is_active = TRUE AND is_deleted = FALSE",
+                    new MySqlParameter("@userId", userId));
+
+                if (teacherResult.Rows.Count == 0)
+                    throw new Exception("User is not an active teacher");
+
+                var teacherId = Convert.ToInt32(teacherResult.Rows[0]["id"]);
+                var teacherName = await GetTeacherNameAsync(userId);
+
+                return result.AsEnumerable().Select(row => new TeacherAssignmentDetail
+                {
+                    Id = Convert.ToInt32(row["assignment_id"]),
+                    TeacherId = teacherId,  // Set from separate query
+                    TeacherName = teacherName,  // Set from separate query
+                    CourseOfferingId = Convert.ToInt32(row["course_offering_id"]),
+                    CourseCode = row["course_code"].ToString(),
+                    CourseTitle = row["course_title"].ToString(),
+                    SemesterName = row["semester_name"].ToString(),
+                    SemesterStart = Convert.ToDateTime(row["semester_start"]),
+                    SemesterEnd = Convert.ToDateTime(row["semester_end"]),
+                    IsPrimary = Convert.ToBoolean(row["is_primary"]),
+                    CreatedAt = Convert.ToDateTime(row["created_at"]),
+                    ModifiedAt = Convert.ToDateTime(row["modified_at"]),
+                    IsActive = Convert.ToBoolean(row["is_active"])
+                }).ToList();
+            }
+            catch (MySqlException ex) when (ex.Number == 1644) // Custom error from SIGNAL
+            {
+                throw new Exception(ex.Message);
+            }
+        }
+
+        private async Task<string> GetTeacherNameAsync(int userId)
+        {
+            var result = await _context.ExecuteQueryAsync(
+                "SELECT name FROM users WHERE id = @userId",
+                new MySqlParameter("@userId", userId));
+
+            return result.Rows.Count > 0 ? result.Rows[0]["name"].ToString() : null;
         }
 
         public async Task<TeacherAssignment> GetByIdAsync(int id)

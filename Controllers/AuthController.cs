@@ -46,23 +46,21 @@ namespace backend.Controllers
         }
 
         [HttpGet("sessions")]
-        [PermissionRequired("AuthController", "read", "user_sessions")]
+        [PermissionRequired("AuthController", "read", "all_sessions")]
         public async Task<IActionResult> GetActiveSessions(int? userId)
         {
             var currentUserId = int.Parse(User.FindFirst("id").Value);
             var currentProfile = User.FindFirst("profile").Value;
 
-            // Admin can view all sessions, others can only view their own
-            if (currentProfile != "admin")
-            {
-                userId = currentUserId;
-            }
+
+          
+
             var sessions = await _authService.GetActiveSessions(currentUserId, userId);
             return Ok(sessions);
         }
 
         [HttpPost("sessions/revoke")]
-        [PermissionRequired("AuthController", "delete", "user_sessions")]
+        [PermissionRequired("AuthController", "delete", "all_sessions")]
         public async Task<IActionResult> RevokeSession([FromBody] RevokeSessionRequest request)
         {
             var result = await _authService.RevokeSession(request.SessionId);
@@ -71,7 +69,7 @@ namespace backend.Controllers
         }
 
         [HttpPost("sessions/terminate-others")]
-        [PermissionRequired("AuthController", "delete", "user_sessions")]
+        [PermissionRequired("AuthController", "delete", "own_sessions")]
         public async Task<IActionResult> TerminateOtherSessions()
         {
             var currentUserId = int.Parse(User.FindFirst("id").Value);

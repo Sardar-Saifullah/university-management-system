@@ -15,7 +15,7 @@ namespace backend.Repositories
             _context = context;
         }
 
-        public async Task<ActivityProfileMapping> CheckPermission(string profileName, string activityName)
+        public async Task<ActivityProfileMapping?> CheckPermission(string profileName, string activityName)
         {
             var parameters = new[]
             {
@@ -24,37 +24,49 @@ namespace backend.Repositories
             };
 
             var result = await _context.ExecuteQueryAsync("sp_CheckPermission", parameters);
-            if (result.Rows.Count == 0) return null;
 
-            return MapToActivityProfileMapping(result.Rows[0]);
+            return result.Rows.Count == 0 ? null : MapToActivityProfileMapping(result.Rows[0]);
         }
-      
-
 
         public async Task<List<PermissionResponse>> GetProfilePermissions(string profileName)
         {
             var parameters = new[]
             {
-        new MySqlParameter("p_profile_name", profileName)
-    };
+                new MySqlParameter("p_profile_name", profileName)
+            };
 
             var result = await _context.ExecuteQueryAsync("sp_GetProfilePermissions", parameters);
+            var permissions = new List<PermissionResponse>();
 
-            return result.Rows.Cast<DataRow>().Select(row => new PermissionResponse
+            foreach (DataRow row in result.Rows)
+            {
+                permissions.Add(MapToPermissionResponse(row));
+            }
+
+            return permissions;
+        }
+
+        private PermissionResponse MapToPermissionResponse(DataRow row)
+        {
+            return new PermissionResponse
             {
                 ProfileId = Convert.ToInt32(row["profile_id"]),
                 ProfileName = row["profile_name"].ToString(),
                 ActivityId = Convert.ToInt32(row["activity_id"]),
                 ActivityName = row["activity_name"].ToString(),
+                ControllerName = row["controller_name"].ToString(),
+                ActionType = row["action_type"].ToString(),
+                ResourceName = row["resource_name"].ToString(),
                 ActivityUrl = row["activity_url"].ToString(),
                 CanCreate = Convert.ToBoolean(row["can_create"]),
                 CanRead = Convert.ToBoolean(row["can_read"]),
                 CanUpdate = Convert.ToBoolean(row["can_update"]),
                 CanDelete = Convert.ToBoolean(row["can_delete"]),
-                CanExport = Convert.ToBoolean(row["can_export"])
-            }).ToList();
+                CanExport = Convert.ToBoolean(row["can_export"]),
+                IsActive = Convert.ToBoolean(row["mapping_active"])
+            };
         }
-        // In PermissionRepository.cs - Add this method
+
         private ActivityProfileMapping MapToActivityProfileMapping(DataRow row)
         {
             return new ActivityProfileMapping

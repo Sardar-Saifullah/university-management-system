@@ -1,27 +1,22 @@
-﻿// Services/Implementations/CreditLimitPolicyService.cs
+﻿// Services/CreditLimitPolicyService.cs
+using backend.Data;
 using backend.Dtos;
 using backend.Models;
 using backend.Repositories;
+using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace backend.Services
 {
     public class CreditLimitPolicyService : ICreditLimitPolicyService
     {
         private readonly ICreditLimitPolicyRepository _policyRepository;
-        private readonly ICreditLimitOverrideRepository _overrideRepository;
-        private readonly IProfileRepository _profileRepository;
-        private readonly ICourseRepository _courseRepository;
+        private readonly IDatabaseContext _context;
 
-        public CreditLimitPolicyService(
-            ICreditLimitPolicyRepository policyRepository,
-            ICreditLimitOverrideRepository overrideRepository,
-            IProfileRepository profileRepository,
-            ICourseRepository courseRepository)
+        public CreditLimitPolicyService(ICreditLimitPolicyRepository policyRepository, IDatabaseContext context)
         {
             _policyRepository = policyRepository;
-            _overrideRepository = overrideRepository;
-            _profileRepository = profileRepository;
-            _courseRepository = courseRepository;
+            _context = context;
         }
 
         public async Task<CreditLimitPolicyResponseDto> CreateAsync(CreditLimitPolicyCreateDto dto, int createdBy)
@@ -33,14 +28,13 @@ namespace backend.Services
                 AppliesTo = dto.AppliesTo,
                 AppliesToId = dto.AppliesToId,
                 MaxCredits = dto.MaxCredits,
-                MinCredits = dto.MinCredits,
-                CreatedBy = createdBy
+                MinCredits = dto.MinCredits
             };
 
-            var id = await _policyRepository.CreateAsync(policy, createdBy);
-            var createdPolicy = await _policyRepository.GetByIdAsync(id);
+            var policyId = await _policyRepository.CreateAsync(policy, createdBy);
+            var createdPolicy = await _policyRepository.GetByIdAsync(policyId);
 
-            return MapToResponseDto(createdPolicy!);
+            return MapToResponseDto(createdPolicy);
         }
 
         public async Task<CreditLimitPolicyResponseDto> UpdateAsync(int id, CreditLimitPolicyUpdateDto dto, int modifiedBy)
@@ -56,14 +50,11 @@ namespace backend.Services
             existingPolicy.MaxCredits = dto.MaxCredits;
             existingPolicy.MinCredits = dto.MinCredits;
             existingPolicy.IsActive = dto.IsActive;
-            existingPolicy.ModifiedBy = modifiedBy;
 
-            var success = await _policyRepository.UpdateAsync(existingPolicy, modifiedBy);
-            if (!success)
-                throw new Exception("Failed to update credit limit policy");
-
+            await _policyRepository.UpdateAsync(existingPolicy, modifiedBy);
             var updatedPolicy = await _policyRepository.GetByIdAsync(id);
-            return MapToResponseDto(updatedPolicy!);
+
+            return MapToResponseDto(updatedPolicy);
         }
 
         public async Task<IEnumerable<CreditLimitPolicyResponseDto>> GetAllAsync()
@@ -75,7 +66,7 @@ namespace backend.Services
         public async Task<CreditLimitPolicyResponseDto?> GetByIdAsync(int id)
         {
             var policy = await _policyRepository.GetByIdAsync(id);
-            return policy == null ? null : MapToResponseDto(policy);
+            return policy != null ? MapToResponseDto(policy) : null;
         }
 
         public async Task<bool> DeleteAsync(int id, int modifiedBy)
@@ -83,72 +74,29 @@ namespace backend.Services
             return await _policyRepository.DeleteAsync(id, modifiedBy);
         }
 
-        public async Task<EffectiveCreditLimit> GetEffectiveCreditLimitAsync(int studentId)
+        public async Task<EffectiveCreditLimitResponseDto> GetEffectiveCreditLimitAsync(int studentId)
         {
-            // Check if student exists
-            var student = await _profileRepository.GetStudentProfile(studentId);
-            if (student == null)
-                throw new KeyNotFoundException($"Student with ID {studentId} not found");
+            var parameters = new[] { new MySqlParameter("p_student_id", studentId) };
+            var dataTable = await _context.ExecuteQueryAsync("sp_get_effective_credit_limit", parameters);
 
-            // Get the default policy for the student
-            var defaultPolicy = await _policyRepository.GetStudentCreditLimitAsync(studentId);
-            if (defaultPolicy == null)
-                throw new Exception("No credit limit policy found for student");
+            if (dataTable.Rows.Count == 0)
+                throw new KeyNotFoundException($"Student with ID {studentId} not found or no credit limit policy applies");
 
-            // Check for active override
-            var activeOverride = await _overrideRepository.GetActiveOverrideForStudentAsync(studentId);
+            var row = dataTable.Rows[0];
 
-            int effectiveMaxCredits;
-            if (activeOverride != null)
+            return new EffectiveCreditLimitResponseDto
             {
-                effectiveMaxCredits = activeOverride.NewMaxCredits;
-            }
-            else
-            {
-                effectiveMaxCredits = defaultPolicy.MaxCredits;
-            }
-
-            return new EffectiveCreditLimit
-            {
-                EffectiveMaxCredits = effectiveMaxCredits,
-                MinRequiredCredits = defaultPolicy.MinCredits,
-                HasOverride = activeOverride != null,
-                CompletedCredits = student.CompletedCreditHours,
-                CurrentSemesterCredits = student.CurrentCreditHours,
-                AppliesToName = defaultPolicy.Name,
-                PolicyName = defaultPolicy.Name
+                EffectiveMaxCredits = Convert.ToInt32(row["effective_max_credits"]),
+                MinRequiredCredits = Convert.ToInt32(row["min_required_credits"]),
+                HasOverride = Convert.ToBoolean(row["has_override"]),
+                CompletedCredits = Convert.ToDecimal(row["completed_credits"]),
+                CurrentSemesterCredits = Convert.ToDecimal(row["current_semester_credits"]),
+                AppliesToName = row["applies_to_name"].ToString(),
+                PolicyName = row["policy_name"].ToString()
             };
         }
 
-        public async Task<EnrollmentValidationResult> ValidateEnrollmentAgainstCreditLimit(int studentId, int courseId)
-        {
-            // Get student and course information
-            var student = await _profileRepository.GetStudentProfile(studentId);
-            if (student == null)
-                throw new KeyNotFoundException($"Student with ID {studentId} not found");
-
-            var course = await _courseRepository.GetCourseById(courseId);
-            if (course == null)
-                throw new KeyNotFoundException($"Course with ID {courseId} not found");
-
-            // Get effective credit limit
-            var creditLimit = await GetEffectiveCreditLimitAsync(studentId);
-
-            // Check if adding this course would exceed the limit
-            var totalAfterEnrollment = student.CurrentCreditHours + course.CreditHours;
-            var isAllowed = totalAfterEnrollment <= creditLimit.EffectiveMaxCredits;
-
-            return new EnrollmentValidationResult
-            {
-                IsAllowed = isAllowed,
-                Reason = isAllowed
-                    ? "Within credit limits"
-                    : $"Adding this course would exceed your maximum allowed credits ({creditLimit.EffectiveMaxCredits}). Current credits: {student.CurrentCreditHours}, Course credits: {course.CreditHours}",
-                CurrentCredits = student.CurrentCreditHours,
-                CourseCredits = course.CreditHours,
-                MaxAllowedCredits = creditLimit.EffectiveMaxCredits
-            };
-        }
+       
 
         private CreditLimitPolicyResponseDto MapToResponseDto(CreditLimitPolicy policy)
         {
@@ -159,11 +107,14 @@ namespace backend.Services
                 Description = policy.Description,
                 AppliesTo = policy.AppliesTo,
                 AppliesToId = policy.AppliesToId,
+                AppliesToName = policy.AppliesToName,
                 MaxCredits = policy.MaxCredits,
                 MinCredits = policy.MinCredits,
                 IsActive = policy.IsActive,
                 CreatedAt = policy.CreatedAt,
-                CreatedByName = null // Would need user service to populate this
+                CreatedByName = policy.CreatedByName, // This should be set from the stored procedure
+                ModifiedAt = policy.ModifiedAt,
+                ModifiedByName = policy.ModifiedByName // This should be set from the stored procedure
             };
         }
     }

@@ -44,6 +44,7 @@ namespace backend.Filters
                 return;
             }
 
+
             var permissionAttribute = context.ActionDescriptor.EndpointMetadata
                 .OfType<PermissionRequiredAttribute>()
                 .FirstOrDefault();

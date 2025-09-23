@@ -1,14 +1,13 @@
 ﻿using backend.Models;
+using System.Threading.Tasks;
+
 namespace backend.Repositories
 {
     public interface IProfilePictureRepository
     {
-        Task<int> CreateProfilePictureAsync(int adminId, int userId, string fileName,
-            string filePath, long fileSize, string mimeType, string storageType);
-        Task<bool> UpdateProfilePictureAsync(int adminId, int pictureId, bool isActive);
-        Task<(bool success, string filePath)> DeleteProfilePictureAsync(int adminId, int pictureId);
-        Task<ProfilePicture?> GetActiveProfilePictureAsync(int userId);
-        Task<List<ProfilePictureResponse>> GetProfilePicturesByUserAsync(int userId);
-        Task<List<ProfilePictureResponse>> GetAllProfilePicturesAsync(string? userType, bool? isActive);
+        Task<(bool Success, int PictureId, string Message)> CreateProfilePictureAsync(int adminId, ProfilePicture picture);
+        Task<(bool Success, ProfilePictureResponse Data, string Message)> GetProfilePictureAsync(int requestingUserId, int targetUserId);
+        Task<(bool Success, ProfilePictureResponse Data, string Message)> GetMyProfilePictureAsync(int userId);
+        Task<(bool Success, string FilePath, string Message)> DeleteProfilePictureAsync(int adminId, int pictureId);
     }
 }

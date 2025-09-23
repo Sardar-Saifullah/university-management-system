@@ -1,5 +1,3 @@
-
-// Services/Implementations/CourseOfferingService.cs
 using backend.Dtos;
 using backend.Models;
 using backend.Repositories;
@@ -7,6 +5,8 @@ using System.Text.Json;
 
 namespace backend.Services
 {
+  
+
     public class CourseOfferingService : ICourseOfferingService
     {
         private readonly ICourseOfferingRepository _repository;
@@ -15,21 +15,18 @@ namespace backend.Services
         private readonly IDepartmentRepository _departmentRepository;
         private readonly IAcademicProgramRepository _programRepository;
         private readonly ILevelRepository _levelRepository;
-       
 
         public CourseOfferingService(
             ICourseOfferingRepository repository,
             ICourseRepository courseRepository,
             ISemesterRepository semesterRepository,
-             IDepartmentRepository departmentRepository,
-             IAcademicProgramRepository programRepository,
-             ILevelRepository levelRepository
-            )
+            IDepartmentRepository departmentRepository,
+            IAcademicProgramRepository programRepository,
+            ILevelRepository levelRepository)
         {
             _repository = repository;
             _courseRepository = courseRepository;
             _semesterRepository = semesterRepository;
-
             _departmentRepository = departmentRepository;
             _programRepository = programRepository;
             _levelRepository = levelRepository;
@@ -60,7 +57,7 @@ namespace backend.Services
             if (dto.EnrollmentStart.HasValue) existing.EnrollmentStart = dto.EnrollmentStart.Value;
             if (dto.EnrollmentEnd.HasValue) existing.EnrollmentEnd = dto.EnrollmentEnd.Value;
             if (dto.IsActive.HasValue) existing.IsActive = dto.IsActive.Value;
-           
+
             var updated = await _repository.Update(id, existing, userId);
             return await MapToDto(updated);
         }
@@ -98,24 +95,29 @@ namespace backend.Services
         {
             if (offering == null) return null;
 
-            var course = await _courseRepository.GetCourseById(offering.CourseId);
+            var course = await _courseRepository.GetById(offering.CourseId);
             var semester = await _semesterRepository.GetById(offering.SemesterId);
 
+            if (course == null || semester == null) return null;
+
             string programName = null;
-            if (course != null && course.ProgramId.HasValue)
+            if (course.ProgramId.HasValue)
             {
                 var program = await _programRepository.GetByIdAsync(course.ProgramId.Value);
                 programName = program?.Name;
             }
 
+            var department = await _departmentRepository.GetById(course.DepartmentId);
+            var level = await _levelRepository.GetById(course.LevelId);
+
             return new CourseOfferingGetDto
             {
                 Id = offering.Id,
                 CourseId = offering.CourseId,
-                CourseCode = course?.Code,
-                CourseTitle = course?.Title,
+                CourseCode = course.Code,
+                CourseTitle = course.Title,
                 SemesterId = offering.SemesterId,
-                SemesterName = semester?.Name,
+                SemesterName = semester.Name,
                 SemesterStartDate = semester.StartDate,
                 SemesterEndDate = semester.EndDate,
                 MaxCapacity = offering.MaxCapacity,
@@ -123,13 +125,13 @@ namespace backend.Services
                 EnrollmentStart = offering.EnrollmentStart,
                 EnrollmentEnd = offering.EnrollmentEnd,
                 IsActive = offering.IsActive,
-                DepartmentId = course?.DepartmentId ?? 0,
-                DepartmentName = course != null ? (await _departmentRepository.GetById(course.DepartmentId))?.Name : null,
-                ProgramId = course?.ProgramId,
-                ProgramName = programName, // Use the pre-fetched value
-                LevelId = course?.LevelId ?? 0,
-                LevelName = course != null ? (await _levelRepository.GetById(course.LevelId))?.Name : null,
-                CreditHours = course?.CreditHours ?? 0
+                DepartmentId = course.DepartmentId,
+                DepartmentName = department?.Name,
+                ProgramId = course.ProgramId,
+                ProgramName = programName,
+                LevelId = course.LevelId,
+                LevelName = level?.Name,
+                CreditHours = course.CreditHours
             };
         }
     }
