@@ -1,6 +1,4 @@
-Perfect 👍 — here’s the **GitHub-friendly README description** formatted entirely in plain Markdown text (no extra comments or explanations). You can copy-paste this directly into your `README.md` file — all headings, bullets, and formatting will render cleanly on GitHub.
 
----
 
 # 🎓 University Management System (UMS)
 
@@ -137,4 +135,4 @@ Perfect 👍 — here’s the **GitHub-friendly README description** formatted e
 
 
 
-Would you like me to also create a short “Project Overview” paragraph (3–4 lines) for the very top of your README — summarizing it before the detailed sections? It’s often useful for GitHub visitors to quickly understand what the project is.
+
