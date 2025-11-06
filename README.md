@@ -1,60 +1,98 @@
-# University Management System (UMS) - Backend API
+Project Title: University Management System (UMS)
+Technology Stack: ASP.NET Core Web API | Plain ADO.NET | MySQL | Stored Procedures | Layered Architecture
 
-A robust, secure, and scalable backend for a University Management System built with ASP.NET Core Web API, ADO.NET and MySQL.
+Overview:
 
-🚀 Features & Functionalities
-Comprehensive Core Module CRUD Operations:
+A complete University Management System designed to streamline and automate core academic and administrative workflows.
 
-Academic Program Management: Create and manage degree programs, including duration and credit requirements.
+Built with ASP.NET Core Web API following a clean layered architecture for scalability and maintainability.
 
-Course & Curriculum Management: Handle courses, assign them to programs and departments, and define prerequisites.
+Uses Plain ADO.NET for direct database interaction with MySQL and optimized stored procedures for business logic execution.
 
-Semester & Course Offering System: Schedule semesters and offer specific courses within them, managing enrollment capacities.
+Key Features:
 
-Student Enrollment & Registration: Full workflow for course enrollment requests, admin approval/rejection, and status tracking with a complete history log.
+🔐 Authentication & Authorization:
 
-Teacher & Assignment Management: Manage teacher profiles and assign them to courses as primary or secondary instructors.
+Implemented JWT-based authentication for secure user sessions.
 
-User Management (Admin, Student, Teacher): Centralized user management with distinct profiles for each role.
+Added role-based access control (RBAC) via activity-profile mapping.
 
-Credit Limit Policy Engine: Define flexible credit hour policies (by level, program, department) and grant individual student overrides with approval tracking.
+Permission filter middleware for action-level authorization.
 
-Academic History & GPA Calculation: Track student course history, grades, and automatically calculate Term GPA and overall CGPA via stored procedures.
+Session tracking with token revocation and device info logging.
 
-Advanced Security & Authorization:
+👥 User Management:
 
-JWT-based Authentication: Secure login for Admin, Teacher, and Student roles.
+CRUD operations for Users, Profiles, and Permissions.
 
-Role-Based Access Control (RBAC) with Fine-Grained Permissions: A dynamic permission system where activities (API endpoints) are mapped to profiles, controlling Create, Read, Update, Delete, and Export rights.
+Supports Admin, Teacher, and Student registration and management.
 
-Session Management: Track user logins, devices, and allow session revocation for enhanced security.
+Integrated password hashing for enhanced security.
 
-Supporting Services & Architecture:
+🏫 Academic Management:
 
-Stored Procedure-Centric Data Layer: Core business logic (enrollment checks, GPA calculation) is implemented within MySQL stored procedures for performance and data integrity.
+Full CRUDs for Departments, Programs, and Levels.
 
-Bulk Upload System: Efficiently process large datasets (e.g., student lists, courses) using JSON-based import functionality.
+Course Management with Course Prerequisites and Semester Offerings.
 
-Profile Picture Management: Upload, store, and serve user profile images with an image processor.
+Tracks Teacher Assignments, Enrollments, and Student Course Histories.
 
-Layered Architecture: Clean separation of concerns (Controller, Service, Repository) for maintainability and testability.
+🎓 Enrollment & Registration:
 
-Plain ADO.NET for Data Access: Demonstrates deep understanding of database connectivity and performance optimization without relying on heavy ORMs.
+Supports student registration, course enrollment, and status tracking (pending, approved, dropped, withdrawn).
 
-🛠️ Technology Stack
-Backend Framework: ASP.NET Core Web API
+Admin approval system for managing course enrollments.
 
-Database: MySQL
+Automated history recording through enrollment status history.
 
-Data Access: Plain ADO.NET (Dapper principles)
+⚙️ Credit Policy System:
 
-Authentication: JWT (JSON Web Tokens)
+Credit Limit Policies with overrides per student.
 
-Security: Password Hashing, RBAC, Session Management
+Supports department, program, or level-based application.
 
-Architecture: Layered (N-Layer)
+Approval and expiration tracking for override requests.
 
-Key Features: Bulk Upload (JSON), Image Processing, Stored Procedures
+🖼️ Media Management:
 
-📁 Key Database Entities
-The system manages a wide range of entities, including Users, Profiles, Activities, StudentProfile, TeacherProfile, AdminProfile, Course, Program, Enrollment, CourseHistory, Semester, and more, with well-defined relationships and constraints.
+Built-in Image Processor for Profile Picture Uploads.
+
+Handles file metadata (type, size, path) with database tracking.
+
+📦 Data Management & Utilities:
+
+Bulk Upload Processor (JSON-based) for mass data insertion.
+
+Centralized Error Handling and Response Formatting.
+
+Logging and auditing with created_by, modified_by, timestamps, and activity history.
+
+🧩 Architecture & Code Design:
+
+Multi-layered architecture:
+
+API Layer: Controllers for handling endpoints.
+
+Business Layer: Services and business rules.
+
+Data Access Layer: Repository with ADO.NET and stored procedures.
+
+Ensures loose coupling and separation of concerns.
+
+Uses dependency injection and asynchronous data operations.
+
+🧠 Database:
+
+Fully normalized MySQL schema with foreign keys and constraints.
+
+Over 20+ tables covering users, academic entities, and permissions.
+
+Stored procedures encapsulate insert/update logic and validation.
+
+🧰 Additional Functionalities:
+
+Session Management System with user_session table for JWT tracking.
+
+Export features for academic data.
+
+Activity logging for all CRUD operations.
