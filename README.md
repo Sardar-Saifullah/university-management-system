@@ -1,98 +1,140 @@
-Project Title: University Management System (UMS)
-Technology Stack: ASP.NET Core Web API | Plain ADO.NET | MySQL | Stored Procedures | Layered Architecture
+Perfect 👍 — here’s the **GitHub-friendly README description** formatted entirely in plain Markdown text (no extra comments or explanations). You can copy-paste this directly into your `README.md` file — all headings, bullets, and formatting will render cleanly on GitHub.
 
-Overview:
+---
 
-A complete University Management System designed to streamline and automate core academic and administrative workflows.
+# 🎓 University Management System (UMS)
 
-Built with ASP.NET Core Web API following a clean layered architecture for scalability and maintainability.
+## 🧩 Overview
 
-Uses Plain ADO.NET for direct database interaction with MySQL and optimized stored procedures for business logic execution.
+* A complete **University Management System** built using **ASP.NET Core Web API** and **Plain ADO.NET**.
+* Designed with a **clean layered architecture** for scalability, maintainability, and modularity.
+* Integrates **MySQL** as the backend database with **stored procedures** implementing core business logic.
+* Implements **authentication, authorization, and permission-based access control** across all entities.
 
-Key Features:
+---
 
-🔐 Authentication & Authorization:
+## ⚙️ Technology Stack
 
-Implemented JWT-based authentication for secure user sessions.
+* **Backend:** ASP.NET Core Web API
+* **Data Access:** Plain ADO.NET with Stored Procedures
+* **Database:** MySQL 8.0
+* **Architecture:** Layered (API Layer → Business Layer → Data Layer)
+* **Authentication:** JWT (JSON Web Tokens)
+* **Authorization:** Role & Activity-based Permission Filters
 
-Added role-based access control (RBAC) via activity-profile mapping.
+---
 
-Permission filter middleware for action-level authorization.
+## 🔐 Authentication & Authorization
 
-Session tracking with token revocation and device info logging.
+* Secure **JWT-based authentication** with refresh and access token mechanism.
+* **Session management** via `user_session` table for tracking and revoking tokens.
+* **Role-based access control (RBAC)** using activity-profile mappings.
+* Custom **permission filters** implemented at controller and action levels.
+* Integrated **password hashing** and validation for all users.
 
-👥 User Management:
+---
 
-CRUD operations for Users, Profiles, and Permissions.
+## 👥 User Management
 
-Supports Admin, Teacher, and Student registration and management.
+* CRUD operations for **Users**, **Profiles**, and **Permissions**.
+* Separate registration and management flows for **Admins**, **Teachers**, and **Students**.
+* Profile picture upload and linking through the **Profile Picture Processor**.
+* Maintains audit trail with `created_by`, `modified_by`, and timestamps.
 
-Integrated password hashing for enhanced security.
+---
 
-🏫 Academic Management:
+## 🏫 Academic Management
 
-Full CRUDs for Departments, Programs, and Levels.
+* CRUD operations for **Departments**, **Programs**, and **Levels**.
+* Comprehensive **Course Management** with prerequisites and semester offerings.
+* **Teacher Assignment Module** for linking instructors with offered courses.
+* Tracks **Student Course History** including grades, GPA, and retakes.
 
-Course Management with Course Prerequisites and Semester Offerings.
+---
 
-Tracks Teacher Assignments, Enrollments, and Student Course Histories.
+## 🎓 Enrollment & Registration
 
-🎓 Enrollment & Registration:
+* Complete **Enrollment Management System** for course registration.
+* Supports **enrollment status flow**: pending → approved → dropped/withdrawn.
+* **Admin approval and rejection** tracking with reason and timestamps.
+* Automatic logging in **Enrollment Status History** for audit and transparency.
 
-Supports student registration, course enrollment, and status tracking (pending, approved, dropped, withdrawn).
+---
 
-Admin approval system for managing course enrollments.
+## 📏 Credit Policy System
 
-Automated history recording through enrollment status history.
+* Implements **Credit Limit Policy** for academic credit hour restrictions.
+* Supports **department**, **program**, or **level-specific** policies.
+* **Override system** for students with approved exceptions and expiration handling.
 
-⚙️ Credit Policy System:
+---
 
-Credit Limit Policies with overrides per student.
+## 🖼️ Media Management
 
-Supports department, program, or level-based application.
+* Integrated **Profile Image Processor** for upload, resize, and metadata tracking.
+* Stores **file name**, **path**, **type**, and **size** with reference in `profile_pictures` table.
+* Enforces **unique active image per user** through database constraints.
 
-Approval and expiration tracking for override requests.
+---
 
-🖼️ Media Management:
+## 📦 Data Management & Utilities
 
-Built-in Image Processor for Profile Picture Uploads.
+* **Bulk Upload Processor** for importing data via JSON input.
+* Centralized **error handling** and **standardized API responses**.
+* Integrated **logging and auditing** for CRUD operations.
+* Built-in **export and reporting** capabilities for admin users.
 
-Handles file metadata (type, size, path) with database tracking.
+---
 
-📦 Data Management & Utilities:
+## 🧠 Database Design
 
-Bulk Upload Processor (JSON-based) for mass data insertion.
+* **Fully normalized MySQL schema** with strong referential integrity.
+* Includes 20+ interrelated tables covering all university entities.
+* Enforced constraints, foreign keys, and validation checks.
+* Stored procedures encapsulate all business logic for CRUD operations.
 
-Centralized Error Handling and Response Formatting.
+---
 
-Logging and auditing with created_by, modified_by, timestamps, and activity history.
+## 🧩 Architecture Design
 
-🧩 Architecture & Code Design:
+* **Layered architecture pattern** ensuring modularity and clean separation of concerns.
 
-Multi-layered architecture:
+  * **API Layer:** Controllers managing HTTP requests and responses.
+  * **Business Layer:** Services containing core business logic.
+  * **Data Access Layer:** Repositories using ADO.NET and stored procedures.
+* Uses **Dependency Injection** for services and repositories.
+* Fully **asynchronous** database interaction for performance optimization.
 
-API Layer: Controllers for handling endpoints.
+---
 
-Business Layer: Services and business rules.
+## 🧰 Additional Features
 
-Data Access Layer: Repository with ADO.NET and stored procedures.
+* **Session management system** for secure token lifecycle control.
+* **Permission-based filtering** for fine-grained access.
+* **Activity logging** for user operations and audit tracking.
+* **Bulk data processing utilities** for efficient data import/export.
+* **Complete CRUD implementations** for all university entities.
 
-Ensures loose coupling and separation of concerns.
+---
 
-Uses dependency injection and asynchronous data operations.
+## 🧾 Modules Implemented
 
-🧠 Database:
+* Academic Program Management
+* Authentication & Authorization
+* Course & Course History Management
+* Course Offering & Prerequisite Management
+* Credit Limit Policy and Override Management
+* Department Management
+* Enrollment Management
+* Level & Profile Management
+* Profile Picture Handling
+* Admin, Teacher, and Student Registration
+* Semester Management
+* Teacher Assignment Management
+* User & Permission Management
 
-Fully normalized MySQL schema with foreign keys and constraints.
+---
 
-Over 20+ tables covering users, academic entities, and permissions.
 
-Stored procedures encapsulate insert/update logic and validation.
 
-🧰 Additional Functionalities:
-
-Session Management System with user_session table for JWT tracking.
-
-Export features for academic data.
-
-Activity logging for all CRUD operations.
+Would you like me to also create a short “Project Overview” paragraph (3–4 lines) for the very top of your README — summarizing it before the detailed sections? It’s often useful for GitHub visitors to quickly understand what the project is.
